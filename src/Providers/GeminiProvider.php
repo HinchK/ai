@@ -94,7 +94,7 @@ class GeminiProvider extends Provider implements EmbeddingProvider, FileProvider
      */
     public function cheapestTextModel(): string
     {
-        return $this->config['models']['text']['cheapest'] ?? 'gemini-2.5-flash-lite';
+        return $this->config['models']['text']['cheapest'] ?? 'gemini-3.1-flash-lite-preview';
     }
 
     /**
@@ -102,7 +102,7 @@ class GeminiProvider extends Provider implements EmbeddingProvider, FileProvider
      */
     public function smartestTextModel(): string
     {
-        return $this->config['models']['text']['smartest'] ?? 'gemini-3-pro-preview';
+        return $this->config['models']['text']['smartest'] ?? 'gemini-3.1-pro-preview';
     }
 
     /**
