@@ -91,6 +91,7 @@ class PrismStreamEventTest extends TestCase
         $result = PrismStreamEvent::toLaravelStreamEvent('invocation-1', $event, 'openai', 'gpt-4');
 
         $this->assertInstanceOf(\Laravel\Ai\Streaming\Events\Error::class, $result);
+
         /** @var \Laravel\Ai\Streaming\Events\Error $result */
         $this->assertEquals('event-5', $result->id);
         $this->assertEquals('server_error', $result->type);
