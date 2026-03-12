@@ -349,6 +349,7 @@ class PrismGateway implements Gateway
         $request->withProviderOptions(match ($provider->driver()) {
             'gemini' => ['outputDimensionality' => $dimensions],
             'openai' => ['dimensions' => $dimensions],
+            'openrouter' => ['dimensions' => $dimensions],
             'voyageai' => ['outputDimension' => $dimensions],
             default => [],
         });
