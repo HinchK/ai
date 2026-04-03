@@ -2,26 +2,27 @@
 
 namespace Tests\Feature\Agents;
 
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasProviderOptions;
-use Laravel\Ai\Contracts\HasTools;
+use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
-use Tests\Feature\Tools\FixedNumberGenerator;
 
-class ProviderOptionsWithToolsAgent implements Agent, HasProviderOptions, HasTools
+class StructuredWithThinkingAgent implements Agent, HasProviderOptions, HasStructuredOutput
 {
     use Promptable;
 
     public function instructions(): string
     {
-        return 'You are a helpful assistant that generates numbers.';
+        return 'You are a helpful assistant that uses structured output.';
     }
 
-    public function tools(): iterable
+    public function schema(JsonSchema $schema): array
     {
         return [
-            new FixedNumberGenerator,
+            'name' => $schema->string()->required(),
+            'age' => $schema->integer()->required(),
         ];
     }
 
@@ -35,15 +36,6 @@ class ProviderOptionsWithToolsAgent implements Agent, HasProviderOptions, HasToo
                     'type' => 'enabled',
                     'budget_tokens' => 10000,
                 ],
-            ],
-            Lab::OpenAI => [
-                'reasoning' => [
-                    'effort' => 'high',
-                ],
-                'frequency_penalty' => 0.5,
-            ],
-            Lab::Groq => [
-                'frequency_penalty' => 0.5,
             ],
             default => [],
         };
