@@ -57,52 +57,6 @@ class AnthropicGateway implements Gateway
     }
 
     /**
-     * Execute a callback with Anthropic-specific exception handling.
-     *
-     * Translates HTTP 429, 529, and insufficient credit errors into
-     * failoverable exceptions matching the Prism gateway behavior.
-     *
-     * @template T
-     *
-     * @param  Closure(): T  $callback
-     * @return T
-     */
-    protected function withRateLimitHandling(string $providerName, Closure $callback): mixed
-    {
-        try {
-            return $callback();
-        } catch (RequestException $e) {
-            if ($e->response !== null) {
-                $status = $e->response->status();
-
-                if ($status === 429) {
-                    throw RateLimitedException::forProvider(
-                        $providerName, $e->getCode(), $e
-                    );
-                }
-
-                if ($status === 529) {
-                    throw ProviderOverloadedException::forProvider(
-                        $providerName, $e->getCode(), $e
-                    );
-                }
-
-                $message = strtolower($e->response->json('error.message', ''));
-
-                foreach (static::$insufficientCreditPatterns as $pattern) {
-                    if (str_contains($message, $pattern)) {
-                        throw InsufficientCreditsException::forProvider(
-                            $providerName, $e->getCode(), $e
-                        );
-                    }
-                }
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
      * {@inheritdoc}
      */
     public function generateText(
@@ -252,5 +206,48 @@ class AnthropicGateway implements Gateway
         int $timeout = 30,
     ): EmbeddingsResponse {
         throw new LogicException('Anthropic does not support embeddings.');
+    }
+
+    /**
+     * Execute a callback with Anthropic-specific exception handling.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    protected function withRateLimitHandling(string $providerName, Closure $callback): mixed
+    {
+        try {
+            return $callback();
+        } catch (RequestException $e) {
+            if ($e->response !== null) {
+                $status = $e->response->status();
+
+                if ($status === 429) {
+                    throw RateLimitedException::forProvider(
+                        $providerName, $e->getCode(), $e
+                    );
+                }
+
+                if ($status === 529) {
+                    throw ProviderOverloadedException::forProvider(
+                        $providerName, $e->getCode(), $e
+                    );
+                }
+
+                $message = strtolower($e->response->json('error.message', ''));
+
+                foreach (static::$insufficientCreditPatterns as $pattern) {
+                    if (str_contains($message, $pattern)) {
+                        throw InsufficientCreditsException::forProvider(
+                            $providerName, $e->getCode(), $e
+                        );
+                    }
+                }
+            }
+
+            throw $e;
+        }
     }
 }
