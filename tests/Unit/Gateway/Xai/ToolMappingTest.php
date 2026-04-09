@@ -1,10 +1,11 @@
 <?php
 
-namespace Tests\Unit\Gateway\Groq;
+namespace Tests\Unit\Gateway\Xai;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
-use Laravel\Ai\Gateway\Groq\Concerns\MapsTools;
+use Laravel\Ai\Gateway\Xai\Concerns\MapsTools;
+use Laravel\Ai\Providers\Provider;
 use Laravel\Ai\Tools\Request;
 use PHPUnit\Framework\TestCase;
 
@@ -16,9 +17,9 @@ class ToolMappingTest extends TestCase
         {
             use MapsTools;
 
-            public function map(array $tools): array
+            public function map(array $tools, Provider $provider): array
             {
-                return $this->mapTools($tools);
+                return $this->mapTools($tools, $provider);
             }
         };
 
@@ -44,11 +45,12 @@ class ToolMappingTest extends TestCase
             }
         };
 
-        $mapped = $mapper->map([$tool]);
+        $provider = $this->createMock(Provider::class);
 
-        $parameters = $mapped[0]['function']['parameters'];
+        $mapped = $mapper->map([$tool], $provider);
 
-        // The parameters should have direct properties, not wrapped in schema_definition (fixes #239, #342)
+        $parameters = $mapped[0]['parameters'];
+
         $this->assertArrayNotHasKey('schema_definition', $parameters['properties'] ?? []);
         $this->assertNotContains('schema_definition', $parameters['required'] ?? []);
         $this->assertArrayHasKey('name', $parameters['properties']);
@@ -66,9 +68,9 @@ class ToolMappingTest extends TestCase
         {
             use MapsTools;
 
-            public function map(array $tools): array
+            public function map(array $tools, Provider $provider): array
             {
-                return $this->mapTools($tools);
+                return $this->mapTools($tools, $provider);
             }
         };
 
@@ -90,13 +92,13 @@ class ToolMappingTest extends TestCase
             }
         };
 
-        $mapped = $mapper->map([$tool]);
+        $provider = $this->createMock(Provider::class);
 
-        $function = $mapped[0]['function'];
+        $mapped = $mapper->map([$tool], $provider);
 
-        $this->assertArrayHasKey('parameters', $function);
-        $this->assertEquals('object', $function['parameters']['type']);
-        $this->assertEquals([], $function['parameters']['required']);
-        $this->assertFalse($function['parameters']['additionalProperties']);
+        $this->assertArrayHasKey('parameters', $mapped[0]);
+        $this->assertEquals('object', $mapped[0]['parameters']['type']);
+        $this->assertEquals([], $mapped[0]['parameters']['required']);
+        $this->assertFalse($mapped[0]['parameters']['additionalProperties']);
     }
 }
