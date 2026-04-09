@@ -45,7 +45,7 @@ class MistralProvider extends Provider implements EmbeddingProvider, TextProvide
      */
     public function defaultTranscriptionModel(): string
     {
-        return $this->config['models']['transcription']['default'] ?? 'voxtral-small-latest';
+        return $this->config['models']['transcription']['default'] ?? 'voxtral-mini-latest';
     }
 
     /**
