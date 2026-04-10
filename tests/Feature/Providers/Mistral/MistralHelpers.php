@@ -4,20 +4,10 @@ namespace Tests\Feature\Providers\Mistral;
 
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Support\Facades\Http;
-use Tests\TestCase;
+use Tests\Feature\Agents\AssistantAgent;
 
-abstract class MistralTestCase extends TestCase
+trait MistralHelpers
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config(['ai.providers.mistral' => [
-            ...config('ai.providers.mistral'),
-            'key' => 'test-key',
-        ]]);
-    }
-
     protected function fakeTextResponse(string $text = 'Hello'): PromiseInterface
     {
         return Http::response([
@@ -87,5 +77,33 @@ abstract class MistralTestCase extends TestCase
                 'completion_tokens' => 5,
             ],
         ]);
+    }
+
+    protected function collectStreamEvents(?object $agent = null): array
+    {
+        $agent ??= new AssistantAgent;
+
+        $response = $agent->stream('Hello', provider: 'mistral');
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        return $events;
+    }
+
+    protected function ssePayload(array $events): string
+    {
+        $lines = [];
+
+        foreach ($events as $event) {
+            $lines[] = 'data: '.json_encode($event);
+        }
+
+        $lines[] = 'data: [DONE]';
+
+        return implode("\n\n", $lines)."\n\n";
     }
 }

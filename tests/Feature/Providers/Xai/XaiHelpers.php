@@ -4,20 +4,10 @@ namespace Tests\Feature\Providers\Xai;
 
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Support\Facades\Http;
-use Tests\TestCase;
+use Tests\Feature\Agents\AssistantAgent;
 
-abstract class XaiTestCase extends TestCase
+trait XaiHelpers
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        config(['ai.providers.xai' => [
-            ...config('ai.providers.xai'),
-            'key' => 'test-key',
-        ]]);
-    }
-
     protected function fakeTextResponse(string $text = 'Hello'): PromiseInterface
     {
         return Http::response([
@@ -75,5 +65,33 @@ abstract class XaiTestCase extends TestCase
     protected function fakeStructuredResponse(string $json = '{"symbol": "Au"}'): PromiseInterface
     {
         return $this->fakeTextResponse($json);
+    }
+
+    protected function collectStreamEvents(?object $agent = null): array
+    {
+        $agent ??= new AssistantAgent;
+
+        $response = $agent->stream('Hello', provider: 'xai');
+
+        $events = [];
+
+        foreach ($response as $event) {
+            $events[] = $event;
+        }
+
+        return $events;
+    }
+
+    protected function ssePayload(array $events): string
+    {
+        $lines = [];
+
+        foreach ($events as $event) {
+            $lines[] = 'data: '.json_encode($event);
+        }
+
+        $lines[] = 'data: [DONE]';
+
+        return implode("\n\n", $lines)."\n\n";
     }
 }
