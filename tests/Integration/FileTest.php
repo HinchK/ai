@@ -9,6 +9,8 @@ use Laravel\Ai\Events\StoringFile;
 use Laravel\Ai\Files\Document;
 
 beforeEach(function () {
+    requiresApiKey('ANTHROPIC_API_KEY');
+
     $this->provider = 'anthropic';
 });
 
@@ -30,7 +32,7 @@ test('can store files', function () {
 });
 
 test('can store files from local paths', function () {
-    $response = Document::fromPath(__DIR__.'/files/document.txt')->put(
+    $response = Document::fromPath(__DIR__.'/../Fixtures/document.txt')->put(
         name: 'document.txt', provider: $this->provider,
     );
 

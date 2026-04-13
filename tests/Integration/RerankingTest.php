@@ -7,6 +7,8 @@ use Laravel\Ai\Events\Reranking;
 use Laravel\Ai\Reranking as RerankingFacade;
 use Laravel\Ai\Responses\RerankingResponse;
 
+beforeEach(fn () => requiresApiKey('COHERE_API_KEY'));
+
 test('documents can be reranked', function () {
     Event::fake();
 

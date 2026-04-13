@@ -4,6 +4,8 @@ use Tests\Feature\Agents\AssistantAgent;
 use Tests\Feature\Agents\SecondaryAssistantAgent;
 
 beforeEach(function () {
+    requiresApiKey('GROQ_API_KEY');
+
     $this->provider = 'groq';
     $this->model = 'openai/gpt-oss-20b';
 });
