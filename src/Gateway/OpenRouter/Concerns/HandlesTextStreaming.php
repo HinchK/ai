@@ -79,7 +79,7 @@ trait HandlesTextStreaming
 
             $delta = $choice['delta'] ?? [];
 
-            // Handle error finish reason from OpenRouter
+            // Handle error finish reason from OpenRouter...
             if (($choice['finish_reason'] ?? null) === 'error') {
                 $error = $choice['error'] ?? [];
 
