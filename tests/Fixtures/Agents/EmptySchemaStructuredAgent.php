@@ -1,13 +1,13 @@
 <?php
 
-namespace Tests\Feature\Agents;
+namespace Tests\Fixtures\Agents;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Promptable;
 
-class NullableStructuredAgent implements Agent, HasStructuredOutput
+class EmptySchemaStructuredAgent implements Agent, HasStructuredOutput
 {
     use Promptable;
 
@@ -16,7 +16,7 @@ class NullableStructuredAgent implements Agent, HasStructuredOutput
      */
     public function instructions(): string
     {
-        return 'You are a helpful assistant that knows about periodic table elements and their properties.';
+        return 'You are a helpful assistant.';
     }
 
     /**
@@ -24,10 +24,6 @@ class NullableStructuredAgent implements Agent, HasStructuredOutput
      */
     public function schema(JsonSchema $schema): array
     {
-        return [
-            'symbol' => $schema->string()->required(),
-            'meltingPoint' => $schema->number()->nullable()->required(),
-            'boilingPoint' => $schema->number()->nullable()->required(),
-        ];
+        return [];
     }
 }

@@ -1,8 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Http;
-use Tests\Feature\Agents\NullableToolAgent;
-use Tests\Feature\Agents\ToolUsingAgent;
+use Tests\Fixtures\Agents\NullableToolAgent;
+use Tests\Fixtures\Agents\ToolUsingAgent;
 
 test('empty schema omits parameters key', function () {
     Http::fake([

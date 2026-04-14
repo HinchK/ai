@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\Feature\Agents;
+namespace Tests\Fixtures\Agents;
 
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Promptable;
-use Tests\Feature\Tools\NullableParamTool;
+use Tests\Fixtures\Tools\NullableParamTool;
 
 class NullableToolAgent implements Agent, HasTools
 {

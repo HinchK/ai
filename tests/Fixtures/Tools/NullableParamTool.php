@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Tools;
+namespace Tests\Fixtures\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Tool;
