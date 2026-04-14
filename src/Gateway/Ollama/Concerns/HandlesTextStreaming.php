@@ -97,9 +97,9 @@ trait HandlesTextStreaming
                 ))->withInvocationId($invocationId);
             }
 
-            // Accumulate tool calls across chunks. Ollama's docs tell clients to
-            // accumulate partial fields, so we merge id/name/arguments per-index
-            // rather than only storing the first chunk.
+            // Accumulate tool calls across chunks. Ollama's docs tell clients to accumulate
+            // partial fields - so we'll merge id /name / arguments per-index rather than
+            // only storing the first chunk of the tool calls when we handle this here.
             if (! empty($data['message']['tool_calls'])) {
                 foreach ($data['message']['tool_calls'] as $index => $toolCall) {
                     if (! isset($pendingToolCalls[$index])) {
