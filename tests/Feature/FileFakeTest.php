@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Contracts\Files\StorableFile;
 use Laravel\Ai\Files;
 use Laravel\Ai\Files\Document;
@@ -81,6 +82,46 @@ test('can assert no files were stored', function () {
     Files::fake();
 
     Files::assertNothingStored();
+});
+
+test('can override the filename when storing files from each document constructor', function () {
+    Files::fake();
+
+    Document::fromString('Hello, World!', 'text/plain')->put(name: 'custom-name.txt');
+    Document::fromPath(__DIR__.'/../Fixtures/document.txt')->put(name: 'renamed-document.txt');
+    Document::fromUpload(new UploadedFile(__DIR__.'/../Fixtures/report.txt', 'report.txt'))
+        ->put(name: 'renamed-report.txt');
+
+    Files::assertStored(fn (StorableFile $file) => $file->name() === 'custom-name.txt');
+    Files::assertStored(fn (StorableFile $file) => $file->name() === 'renamed-document.txt');
+    Files::assertStored(fn (StorableFile $file) => $file->name() === 'renamed-report.txt');
+});
+
+test('can override the filename when storing an existing storable file', function () {
+    Files::fake();
+
+    Files::put(Document::fromPath(__DIR__.'/../Fixtures/document.txt'), name: 'override.txt');
+
+    Files::assertStored(fn (StorableFile $file) => $file->name() === 'override.txt');
+});
+
+test('can override the filename when storing files from a local path', function () {
+    Files::fake();
+
+    Files::putFromPath(__DIR__.'/../Fixtures/document.txt', name: 'from-path.txt');
+
+    Files::assertStored(fn (StorableFile $file) => $file->name() === 'from-path.txt');
+});
+
+test('can override the filename when storing files from a storage disk', function () {
+    Files::fake();
+
+    Storage::fake('docs');
+    Storage::disk('docs')->put('original.txt', 'contents');
+
+    Files::putFromStorage('original.txt', disk: 'docs', name: 'from-storage.txt');
+
+    Files::assertStored(fn (StorableFile $file) => $file->name() === 'from-storage.txt');
 });
 
 test('can assert file was deleted', function () {
