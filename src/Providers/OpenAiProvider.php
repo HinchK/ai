@@ -106,7 +106,7 @@ class OpenAiProvider extends Provider implements AudioProvider, EmbeddingProvide
      */
     public function defaultImageModel(): string
     {
-        return $this->config['models']['image']['default'] ?? 'gpt-image-1.5';
+        return $this->config['models']['image']['default'] ?? 'gpt-image-2';
     }
 
     /**
