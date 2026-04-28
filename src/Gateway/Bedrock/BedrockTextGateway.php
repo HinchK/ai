@@ -555,7 +555,7 @@ class BedrockTextGateway implements EmbeddingGateway, TextGateway
                     'toolUse' => [
                         'toolUseId' => $toolCall->id,
                         'name' => $toolCall->name,
-                        'input' => $toolCall->arguments,
+                        'input' => $toolCall->arguments ?: new stdClass,
                     ],
                 ], $toolCalls),
             ),
@@ -615,7 +615,7 @@ class BedrockTextGateway implements EmbeddingGateway, TextGateway
                 'tools' => $schemaTools,
                 'toolChoice' => ($isFinalStep || $toolsEmpty)
                     ? ['tool' => ['name' => self::STRUCTURED_OUTPUT_TOOL]]
-                    : ['auto' => new stdClass],
+                    : ['auto' => []],
             ];
         }
 
@@ -656,7 +656,7 @@ class BedrockTextGateway implements EmbeddingGateway, TextGateway
                 'toolUse' => [
                     'toolUseId' => $toolCall->id,
                     'name' => $toolCall->name,
-                    'input' => $toolCall->arguments,
+                    'input' => $toolCall->arguments ?: new stdClass,
                 ],
             ];
         }
