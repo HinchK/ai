@@ -36,6 +36,7 @@ use Laravel\Ai\Streaming\Events\StreamEnd;
 use Laravel\Ai\Streaming\Events\TextDelta;
 use Laravel\Ai\Streaming\Events\ToolCall as ToolCallEvent;
 use Laravel\Ai\Streaming\Events\ToolResult as ToolResultEvent;
+use Laravel\Ai\Tools\ToolNameResolver;
 use stdClass;
 use Throwable;
 
@@ -774,7 +775,7 @@ class BedrockTextGateway implements EmbeddingGateway, TextGateway
             ->filter(fn ($tool) => $tool instanceof Tool)
             ->map(fn (Tool $tool) => [
                 'toolSpec' => [
-                    'name' => class_basename($tool),
+                    'name' => ToolNameResolver::resolve($tool),
                     'description' => (string) $tool->description(),
                     'inputSchema' => [
                         'json' => (new ObjectSchema($tool->schema(new JsonSchemaTypeFactory)))->toArray(),
