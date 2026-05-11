@@ -194,12 +194,13 @@ class GeminiGateway implements Gateway
         array $inputs,
         int $dimensions,
         int $timeout = 30,
+        array $providerOptions = [],
     ): EmbeddingsResponse {
-        $requests = array_map(fn (string $input) => [
+        $requests = array_map(fn (string $input) => array_merge($providerOptions, [
             'model' => "models/{$model}",
             'content' => ['parts' => [['text' => $input]]],
             'output_dimensionality' => $dimensions,
-        ], $inputs);
+        ]), $inputs);
 
         $response = $this->withErrorHandling(
             $provider->name(),

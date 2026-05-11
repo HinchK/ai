@@ -375,12 +375,13 @@ class OpenRouterGateway implements Gateway
         array $inputs,
         int $dimensions,
         int $timeout = 30,
+        array $providerOptions = [],
     ): EmbeddingsResponse {
-        $body = [
+        $body = array_merge($providerOptions, [
             'model' => $model,
             'input' => $inputs,
             'dimensions' => $dimensions,
-        ];
+        ]);
 
         $response = $this->withErrorHandling(
             $provider->name(),
