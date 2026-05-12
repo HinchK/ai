@@ -92,6 +92,18 @@ test('transcription language and diarize are recorded', function () {
     });
 });
 
+test('transcription provider options are recorded', function () {
+    Transcription::fake();
+
+    Transcription::of(base64_encode('audio'))
+        ->providerOptions(['prompt' => 'Laravel Forge and Vapor'])
+        ->generate();
+
+    Transcription::assertGenerated(function (TranscriptionPrompt $prompt) {
+        return ($prompt->providerOptions['prompt'] ?? null) === 'Laravel Forge and Vapor';
+    });
+});
+
 test('fake transcriptions include segments', function () {
     Transcription::fake(['Hello world']);
 
@@ -148,6 +160,18 @@ test('queued transcription language and diarize are recorded', function () {
 
     Transcription::assertQueued(function (QueuedTranscriptionPrompt $prompt) {
         return $prompt->language === 'es' && $prompt->isDiarized();
+    });
+});
+
+test('queued transcription provider options are recorded', function () {
+    Transcription::fake();
+
+    Transcription::fromPath('/path/to/audio.mp3')
+        ->providerOptions(['prompt' => 'Laravel Forge and Vapor'])
+        ->queue();
+
+    Transcription::assertQueued(function (QueuedTranscriptionPrompt $prompt) {
+        return ($prompt->providerOptions['prompt'] ?? null) === 'Laravel Forge and Vapor';
     });
 });
 

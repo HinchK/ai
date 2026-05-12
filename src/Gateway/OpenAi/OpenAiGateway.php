@@ -32,6 +32,7 @@ use Laravel\Ai\Responses\EmbeddingsResponse;
 use Laravel\Ai\Responses\ImageResponse;
 use Laravel\Ai\Responses\TextResponse;
 use Laravel\Ai\Responses\TranscriptionResponse;
+use LogicException;
 
 class OpenAiGateway implements Gateway
 {
@@ -261,6 +262,8 @@ class OpenAiGateway implements Gateway
 
     /**
      * Generate text from the given audio.
+     *
+     * @param  array<string, mixed>  $providerOptions
      */
     public function generateTranscription(
         TranscriptionProvider $provider,
@@ -269,7 +272,12 @@ class OpenAiGateway implements Gateway
         ?string $language = null,
         bool $diarize = false,
         int $timeout = 30,
+        array $providerOptions = [],
     ): TranscriptionResponse {
+        if ($diarize && filled($providerOptions['prompt'] ?? null)) {
+            throw new LogicException('OpenAI does not support the `prompt` option for diarized transcriptions.');
+        }
+
         if ($provider->driver() === 'openai' && ! $diarize) {
             $model = str_replace('-diarize', '', $model);
         }
@@ -278,11 +286,11 @@ class OpenAiGateway implements Gateway
             $provider->name(),
             fn () => $this->client($provider, $timeout)
                 ->attach('file', $audio->content(), $this->audioFilename($audio), ['Content-Type' => $audio->mimeType()])
-                ->post('audio/transcriptions', array_filter([
+                ->post('audio/transcriptions', array_merge($providerOptions, array_filter([
                     'model' => $model,
                     'language' => $language,
                     'response_format' => $diarize ? 'diarized_json' : 'json',
-                ])),
+                ]))),
         );
 
         $data = $response->json();

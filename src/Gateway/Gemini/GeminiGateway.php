@@ -280,6 +280,8 @@ class GeminiGateway implements Gateway
 
     /**
      * Generate text from the given audio.
+     *
+     * @param  array<string, mixed>  $providerOptions
      */
     public function generateTranscription(
         TranscriptionProvider $provider,
@@ -288,6 +290,7 @@ class GeminiGateway implements Gateway
         ?string $language = null,
         bool $diarize = false,
         int $timeout = 30,
+        array $providerOptions = [],
     ): TranscriptionResponse {
         $inlineData = ['inlineData' => [
             'mimeType' => $audio->mimeType() ?? 'audio/mp3',
@@ -301,7 +304,7 @@ class GeminiGateway implements Gateway
 
             $response = $this->withErrorHandling(
                 $provider->name(),
-                fn () => $this->client($provider, $timeout)->post("models/{$model}:generateContent", [
+                fn () => $this->client($provider, $timeout)->post("models/{$model}:generateContent", array_merge($providerOptions, [
                     'contents' => [[
                         'parts' => [['text' => $prompt], $inlineData],
                     ]],
@@ -327,7 +330,7 @@ class GeminiGateway implements Gateway
                             'required' => ['transcript', 'segments'],
                         ],
                     ],
-                ]),
+                ])),
             );
 
             $data = json_decode($response->json('candidates.0.content.parts.0.text') ?? '{}', true);
@@ -347,11 +350,11 @@ class GeminiGateway implements Gateway
 
             $response = $this->withErrorHandling(
                 $provider->name(),
-                fn () => $this->client($provider, $timeout)->post("models/{$model}:generateContent", [
+                fn () => $this->client($provider, $timeout)->post("models/{$model}:generateContent", array_merge($providerOptions, [
                     'contents' => [[
                         'parts' => [['text' => $prompt], $inlineData],
                     ]],
-                ]),
+                ])),
             );
 
             $text = $response->json('candidates.0.content.parts.0.text') ?? '';
