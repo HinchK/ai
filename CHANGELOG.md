@@ -1,6 +1,15 @@
 # Release Notes
 
-## [Unreleased](https://github.com/laravel/ai/compare/v0.7.1...0.x)
+## [Unreleased](https://github.com/laravel/ai/compare/v0.7.2...0.x)
+
+## [v0.7.2](https://github.com/laravel/ai/compare/v0.7.1...v0.7.2) - 2026-05-28
+
+### What's Changed
+
+* Revert "Apply model attribute and explicit model to all providers in a failover list" by [@taylorotwell](https://github.com/taylorotwell) in https://github.com/laravel/ai/pull/667
+* Set claude-opus-4-8 as Anthropic's smartest text model by [@pushpak1300](https://github.com/pushpak1300) in https://github.com/laravel/ai/pull/670
+
+**Full Changelog**: https://github.com/laravel/ai/compare/v0.7.1...v0.7.2
 
 ## [v0.7.1](https://github.com/laravel/ai/compare/v0.7.0...v0.7.1) - 2026-05-26
 
