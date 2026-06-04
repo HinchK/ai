@@ -5,6 +5,7 @@ namespace Laravel\Ai\Gateway\OpenAi;
 use Generator;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 use Laravel\Ai\Contracts\Files\HasName;
@@ -306,8 +307,8 @@ class OpenAiGateway implements Gateway
                 $segment['end'] ?? 0,
             )),
             new Usage(
-                $data['usage']['input_tokens'] ?? 0,
-                $data['usage']['total_tokens'] ?? 0,
+                Arr::get($data, 'usage.input_tokens', 0),
+                Arr::get($data, 'usage.output_tokens', 0),
             ),
             new Meta($provider->name(), $model),
         );
