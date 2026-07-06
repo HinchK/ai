@@ -1,17 +1,15 @@
 <?php
 
-namespace Laravel\Ai\Gateway\DeepSeek\Concerns;
+namespace Laravel\Ai\Gateway\OpenAiCompatible\Concerns;
 
 use Illuminate\Support\Arr;
-use Laravel\Ai\Gateway\Concerns\ComposesSchemaInstructions;
 use Laravel\Ai\Gateway\StepContext;
 use Laravel\Ai\Gateway\TextGenerationOptions;
+use Laravel\Ai\ObjectSchema;
 use Laravel\Ai\Providers\Provider;
 
 trait BuildsTextRequests
 {
-    use ComposesSchemaInstructions;
-
     /**
      * Build the request body for the current text generation step.
      */
@@ -25,28 +23,7 @@ trait BuildsTextRequests
         ?TextGenerationOptions $options,
         StepContext $stepContext,
     ): array {
-        return $this->buildTextRequestBody($provider, $model, $instructions, $messages, $tools, $schema, $options);
-    }
-
-    /**
-     * Build the request body for the Chat Completions API.
-     */
-    protected function buildTextRequestBody(
-        Provider $provider,
-        string $model,
-        ?string $instructions,
-        array $messages,
-        array $tools,
-        ?array $schema,
-        ?TextGenerationOptions $options,
-    ): array {
-        $body = [
-            'model' => $model,
-            'messages' => $this->mapMessagesToChat(
-                $messages,
-                $this->composeInstructions($instructions, $schema),
-            ),
-        ];
+        $body = ['model' => $model];
 
         if (filled($tools)) {
             $mappedTools = $this->mapTools($tools, $provider);
@@ -57,12 +34,14 @@ trait BuildsTextRequests
             }
         }
 
+        $body['messages'] = $this->mapMessagesToChat($messages, $instructions);
+
         if (filled($schema)) {
-            $body['response_format'] = $this->buildResponseFormat();
+            $body['response_format'] = $this->buildResponseFormat($schema);
         }
 
         if (! is_null($options?->maxTokens)) {
-            $body['max_completion_tokens'] = $options->maxTokens;
+            $body['max_tokens'] = $options->maxTokens;
         }
 
         $body = array_merge($body, Arr::whereNotNull([
@@ -70,7 +49,7 @@ trait BuildsTextRequests
             'top_p' => $options?->topP,
         ]));
 
-        $providerOptions = $options?->providerOptions($provider->driver());
+        $providerOptions = $options?->providerOptions($provider->name());
 
         if (filled($providerOptions)) {
             $body = array_merge($body, $providerOptions);
@@ -82,8 +61,17 @@ trait BuildsTextRequests
     /**
      * Build the response format options for structured output.
      */
-    protected function buildResponseFormat(): array
+    protected function buildResponseFormat(array $schema): array
     {
-        return ['type' => 'json_object'];
+        $schemaArray = (new ObjectSchema($schema))->toSchema();
+
+        return [
+            'type' => 'json_schema',
+            'json_schema' => [
+                'name' => $schemaArray['name'] ?? 'schema_definition',
+                'schema' => Arr::except($schemaArray, ['name']),
+                'strict' => true,
+            ],
+        ];
     }
 }
