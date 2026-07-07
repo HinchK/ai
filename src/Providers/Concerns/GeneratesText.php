@@ -64,7 +64,7 @@ trait GeneratesText
 
                 $schema = $agent instanceof HasStructuredOutput ? $agent->schema(new JsonSchemaTypeFactory) : null;
 
-                $response = $this->textGateway()->generateText(
+                $response = $this->textGenerationLoop()->generate(
                     $this,
                     $prompt->model,
                     (string) $agent->instructions(),
@@ -149,7 +149,7 @@ trait GeneratesText
      */
     protected function listenForToolInvocations(string $invocationId, Agent $agent): void
     {
-        $this->textGateway()->onToolInvocation(
+        $this->textGenerationLoop()->onToolInvocation(
             invoking: function (Tool $tool, array $arguments) use ($invocationId, $agent) {
                 $this->currentToolInvocationId = (string) Str::uuid7();
 
