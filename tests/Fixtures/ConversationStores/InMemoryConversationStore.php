@@ -66,4 +66,9 @@ class InMemoryConversationStore implements ConversationStore
             ->take($limit)
             ->values();
     }
+
+    public function storeApprovalResults(string $conversationId, string|int|null $participantId, array $toolResults): void
+    {
+        //
+    }
 }
