@@ -2,6 +2,92 @@
 
 ## Upgrading To 1.0 From 0.9
 
+### Polymorphic Conversation Participants
+
+**Likelihood Of Impact: High**
+
+Remembered conversations now use a polymorphic participant instead of a `user_id`. The conversation tables contain nullable `participant_type` and `participant_id` columns, and the `HasConversations` concern now returns a `MorphMany` relationship.
+
+The package's existing create migration is not run again during an upgrade. Applications that have already migrated the conversation tables should create a new migration similar to the following, replacing `App\Models\User` with the model represented by existing rows:
+
+```php
+use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+$conversationsTable = config('ai.conversations.tables.conversations', 'agent_conversations');
+$messagesTable = config('ai.conversations.tables.messages', 'agent_conversation_messages');
+
+Schema::table($conversationsTable, function (Blueprint $table) {
+    $table->dropIndex(['user_id', 'updated_at']);
+    $table->renameColumn('user_id', 'participant_id');
+    $table->string('participant_type')->nullable()->after('id');
+});
+
+Schema::table($messagesTable, function (Blueprint $table) {
+    $table->dropIndex('conversation_index');
+    $table->dropIndex(['user_id']);
+    $table->renameColumn('user_id', 'participant_id');
+    $table->string('participant_type')->nullable()->after('conversation_id');
+});
+
+$participantType = (new User)->getMorphClass();
+
+DB::table($conversationsTable)->whereNotNull('participant_id')->update(['participant_type' => $participantType]);
+DB::table($messagesTable)->whereNotNull('participant_id')->update(['participant_type' => $participantType]);
+
+Schema::table($conversationsTable, function (Blueprint $table) {
+    $table->index(
+        ['participant_type', 'participant_id', 'updated_at'],
+        'participant_updated_at_index',
+    );
+});
+
+Schema::table($messagesTable, function (Blueprint $table) {
+    $table->index(
+        ['conversation_id', 'participant_type', 'participant_id', 'updated_at'],
+        'conversation_index',
+    );
+
+    $table->index(['participant_type', 'participant_id'], 'participant_index');
+});
+```
+
+If existing rows belong to more than one model, backfill each model separately. Data that previously collided on the same `user_id` cannot be assigned automatically because the old schema did not record its model type.
+
+Custom `ConversationStore` implementations must update their method signatures to receive the participant type before the participant ID:
+
+```php
+public function latestConversationId(
+    string $participantType,
+    string|int $participantId,
+): ?string;
+
+public function storeConversation(
+    ?string $participantType,
+    string|int|null $participantId,
+    string $title,
+): string;
+
+public function storeUserMessage(
+    string $conversationId,
+    ?string $participantType,
+    string|int|null $participantId,
+    AgentPrompt $prompt,
+): string;
+
+public function storeAssistantMessage(
+    string $conversationId,
+    ?string $participantType,
+    string|int|null $participantId,
+    AgentPrompt $prompt,
+    AgentResponse $response,
+): ?string;
+```
+
+Use `forParticipant($participant)` when starting a conversation for models that are not users. The existing `forUser($user)` method remains available as an alias.
+
 ### New `approval_state` Column On Conversation Messages
 
 **Likelihood Of Impact: High**
@@ -59,6 +145,7 @@ nothing new to store:
 ```php
 public function storeApprovalResults(
     string $conversationId,
+    ?string $participantType,
     string|int|null $participantId,
     array $toolResults,
 ): void;

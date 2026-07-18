@@ -12,6 +12,7 @@ use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Contracts\RemembersConversations as RemembersConversationsContract;
 use Laravel\Ai\Messages\AssistantMessage;
 use Laravel\Ai\Messages\Message;
+use Laravel\Ai\Models\Conversation;
 use Laravel\Ai\Prompts\AgentPrompt;
 
 trait ResumesToolApprovals
@@ -93,8 +94,10 @@ trait ResumesToolApprovals
         $store = app(ConversationStore::class);
 
         $conversationId = $agent->currentConversation();
-        $participantId = $agent->conversationParticipant()?->id;
+        $participant = $agent->conversationParticipant();
+        $participantType = $participant === null ? null : Conversation::participantType($participant);
+        $participantId = $participant === null ? null : Conversation::participantKey($participant);
 
-        return fn (array $toolResults) => $store->storeApprovalResults($conversationId, $participantId, $toolResults);
+        return fn (array $toolResults) => $store->storeApprovalResults($conversationId, $participantType, $participantId, $toolResults);
     }
 }

@@ -116,7 +116,8 @@ test('an ownerless remembered agent pauses for approval and resumes without a pa
         ->latest('id')
         ->first();
 
-    expect($assistantRow->user_id)->toBeNull()
+    expect($assistantRow->participant_type)->toBeNull()
+        ->and($assistantRow->participant_id)->toBeNull()
         ->and(json_decode($assistantRow->tool_calls, true)[0]['id'])->toBe('toolu_1')
         ->and(json_decode($assistantRow->tool_results, true))->toBeEmpty();
 

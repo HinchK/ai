@@ -30,12 +30,13 @@ class DatabaseConversationStore implements ConversationStore
     }
 
     /**
-     * Get the most recent conversation ID for a given user.
+     * Get the most recent conversation ID for a given participant.
      */
-    public function latestConversationId(string|int $userId): ?string
+    public function latestConversationId(string $participantType, string|int $participantId): ?string
     {
         return $this->table($this->conversationsTable())
-            ->where('user_id', $userId)
+            ->where('participant_type', $participantType)
+            ->where('participant_id', $participantId)
             ->orderBy('updated_at', 'desc')
             ->first()?->id;
     }
@@ -43,13 +44,14 @@ class DatabaseConversationStore implements ConversationStore
     /**
      * Store a new conversation and return its ID.
      */
-    public function storeConversation(string|int|null $userId, string $title): string
+    public function storeConversation(?string $participantType, string|int|null $participantId, string $title): string
     {
         $conversationId = (string) Str::uuid7();
 
         $this->table($this->conversationsTable())->insert([
             'id' => $conversationId,
-            'user_id' => $userId,
+            'participant_type' => $participantType,
+            'participant_id' => $participantId,
             'title' => $title,
             'created_at' => now(),
             'updated_at' => now(),
@@ -61,16 +63,13 @@ class DatabaseConversationStore implements ConversationStore
     /**
      * Store a new user message for the given conversation and return its ID.
      */
-    public function storeUserMessage(string $conversationId, string|int|null $userId, AgentPrompt $prompt): string
+    public function storeUserMessage(string $conversationId, ?string $participantType, string|int|null $participantId, AgentPrompt $prompt): string
     {
         $messageId = (string) Str::uuid7();
 
         $now = now();
 
-        $this->table($this->messagesTable())->insert([
-            'id' => $messageId,
-            'conversation_id' => $conversationId,
-            'user_id' => $userId,
+        $this->table($this->messagesTable())->insert($this->messageAttributes($messageId, $conversationId, $participantType, $participantId, $now, [
             'agent' => $prompt->agent::class,
             'role' => 'user',
             'content' => $prompt->prompt,
@@ -80,9 +79,7 @@ class DatabaseConversationStore implements ConversationStore
             'usage' => '[]',
             'meta' => '[]',
             'approval_state' => null,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        ]));
 
         $this->touchConversation($conversationId, $now);
 
@@ -92,7 +89,7 @@ class DatabaseConversationStore implements ConversationStore
     /**
      * Store a new assistant message for the given conversation, or null when nothing was stored.
      */
-    public function storeAssistantMessage(string $conversationId, string|int|null $userId, AgentPrompt $prompt, AgentResponse $response): ?string
+    public function storeAssistantMessage(string $conversationId, ?string $participantType, string|int|null $participantId, AgentPrompt $prompt, AgentResponse $response): ?string
     {
         $messageId = (string) Str::uuid7();
 
@@ -110,10 +107,7 @@ class DatabaseConversationStore implements ConversationStore
             }
         }
 
-        $this->table($this->messagesTable())->insert([
-            'id' => $messageId,
-            'conversation_id' => $conversationId,
-            'user_id' => $userId,
+        $this->table($this->messagesTable())->insert($this->messageAttributes($messageId, $conversationId, $participantType, $participantId, $now, [
             'agent' => $prompt->agent::class,
             'role' => 'assistant',
             'content' => $response->text,
@@ -123,9 +117,7 @@ class DatabaseConversationStore implements ConversationStore
             'usage' => json_encode($response->usage),
             'meta' => json_encode($this->messageMeta($response)),
             'approval_state' => $this->approvalState($response),
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        ]));
 
         $this->touchConversation($conversationId, $now);
 
@@ -184,6 +176,24 @@ class DatabaseConversationStore implements ConversationStore
         $this->table($this->conversationsTable())
             ->where('id', $conversationId)
             ->update(['updated_at' => $timestamp]);
+    }
+
+    /**
+     * Build the message row attributes.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    protected function messageAttributes(string $messageId, string $conversationId, ?string $participantType, string|int|null $participantId, mixed $now, array $attributes): array
+    {
+        return array_merge($attributes, [
+            'id' => $messageId,
+            'conversation_id' => $conversationId,
+            'participant_type' => $participantType,
+            'participant_id' => $participantId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
     }
 
     /**
@@ -361,7 +371,7 @@ class DatabaseConversationStore implements ConversationStore
      *
      * @throws ApprovalMismatchException when no paused row matches the resolved results
      */
-    public function storeApprovalResults(string $conversationId, string|int|null $participantId, array $toolResults): void
+    public function storeApprovalResults(string $conversationId, ?string $participantType, string|int|null $participantId, array $toolResults): void
     {
         if ($toolResults === []) {
             return;
@@ -369,10 +379,12 @@ class DatabaseConversationStore implements ConversationStore
 
         $resultIds = array_map(fn (ToolResult $result) => $result->id, $toolResults);
 
-        DB::connection($this->connection)->transaction(function () use ($conversationId, $participantId, $toolResults, $resultIds) {
+        DB::connection($this->connection)->transaction(function () use ($conversationId, $participantType, $participantId, $toolResults, $resultIds) {
             $row = $this->table($this->messagesTable())
                 ->where('conversation_id', $conversationId)
-                ->when($participantId === null, fn ($query) => $query->whereNull('user_id'), fn ($query) => $query->where('user_id', $participantId))
+                ->when($participantId === null,
+                    fn ($query) => $query->whereNull('participant_type')->whereNull('participant_id'),
+                    fn ($query) => $query->where('participant_type', $participantType)->where('participant_id', $participantId))
                 ->where('role', 'assistant')
                 ->whereNotNull('approval_state')
                 ->orderByDesc('id')

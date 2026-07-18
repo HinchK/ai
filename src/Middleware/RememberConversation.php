@@ -9,6 +9,7 @@ use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Contracts\RemembersConversations;
 use Laravel\Ai\Messages\UserMessage;
+use Laravel\Ai\Models\Conversation;
 use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Responses\AgentResponse;
 use Throwable;
@@ -36,39 +37,43 @@ class RememberConversation
                 return;
             }
 
+            $participant = $agent->conversationParticipant();
+            $participantType = $participant === null ? null : Conversation::participantType($participant);
+            $participantId = $participant === null ? null : Conversation::participantKey($participant);
+
             // Create conversation if necessary...
             if (! $agent->currentConversation()) {
                 $conversationId = $this->store->storeConversation(
-                    $agent->conversationParticipant()?->id,
-                    $this->generateTitle($prompt->prompt)
+                    $participantType,
+                    $participantId,
+                    $this->generateTitle($prompt->prompt),
                 );
 
-                $agent->continue(
-                    $conversationId,
-                    $agent->conversationParticipant()
-                );
+                $agent->continue($conversationId, $participant);
             }
 
             // Record user message...
             if (! $prompt->hasApprovalDecisions()) {
                 $this->store->storeUserMessage(
                     $agent->currentConversation(),
-                    $agent->conversationParticipant()?->id,
-                    $prompt
+                    $participantType,
+                    $participantId,
+                    $prompt,
                 );
             }
 
             // Record assistant message...
             $this->store->storeAssistantMessage(
                 $agent->currentConversation(),
-                $agent->conversationParticipant()?->id,
+                $participantType,
+                $participantId,
                 $prompt,
-                $response
+                $response,
             );
 
             $response->withinConversation(
                 $agent->currentConversation(),
-                $agent->conversationParticipant(),
+                $participant,
             );
         });
     }
