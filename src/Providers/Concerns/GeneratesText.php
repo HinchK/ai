@@ -86,7 +86,7 @@ trait GeneratesText
                     $this->approvalResultRecorderFor($prompt, $resolvedApprovalResults),
                 );
 
-                if ($response->awaitingApproval()) {
+                if ($response->hasPendingApprovals()) {
                     $this->throwIfNotResumable($agent);
                 }
 
@@ -108,7 +108,7 @@ trait GeneratesText
             new AgentPrompted($invocationId, $processedPrompt ?? $prompt, $response)
         );
 
-        if ($response->awaitingApproval()) {
+        if ($response->hasPendingApprovals()) {
             $this->events->dispatch(new ToolApprovalRequested(
                 $invocationId,
                 $prompt->agent,

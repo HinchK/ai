@@ -111,9 +111,9 @@ class TextResponse implements \Stringable
     }
 
     /**
-     * Determine whether the response is awaiting tool approval.
+     * Determine whether the response has tool calls pending approval.
      */
-    public function awaitingApproval(): bool
+    public function hasPendingApprovals(): bool
     {
         return $this->pendingApprovals->isNotEmpty();
     }

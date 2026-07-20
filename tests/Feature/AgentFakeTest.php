@@ -132,7 +132,7 @@ describe('prompt responses', function (): void {
 
     test('agents can fake paused approval responses and assert resume prompts', function () {
         ConversationalAgent::fake([
-            AgentResponse::fakeAwaitingApproval([
+            AgentResponse::fakeWithPendingApprovals([
                 new PendingApproval('call-1', 'DeleteFile', ['path' => 'config/app.php'], 'Deletes a file'),
             ]),
             'Resumed',
@@ -140,7 +140,7 @@ describe('prompt responses', function (): void {
 
         $response = (new ConversationalAgent)->prompt('Delete config/app.php');
 
-        expect($response->awaitingApproval())->toBeTrue()
+        expect($response->hasPendingApprovals())->toBeTrue()
             ->and($response->pendingApprovals)->toHaveCount(1);
 
         (new ConversationalAgent)->prompt(Decisions::from(['call-1' => true]));

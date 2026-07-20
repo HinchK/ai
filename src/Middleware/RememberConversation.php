@@ -87,7 +87,7 @@ class RememberConversation
     {
         return $agent->hasConversationParticipant()
             || $agent->currentConversation() !== null
-            || $response->awaitingApproval()
+            || $response->hasPendingApprovals()
             || $prompt->hasApprovalDecisions();
     }
 

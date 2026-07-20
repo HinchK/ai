@@ -496,7 +496,7 @@ class TextGenerationLoop
         }
 
         if ($pendingToolCalls->isEmpty()) {
-            throw new ApprovalMismatchException('There are no pending tool calls awaiting approval.', collect());
+            throw new ApprovalMismatchException('There are no tool calls pending approval.', collect());
         }
 
         return [$pendingToolCalls, $resolvedTools];
