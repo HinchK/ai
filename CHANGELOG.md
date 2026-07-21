@@ -1,6 +1,11 @@
 # Release Notes
 
-## [Unreleased](https://github.com/laravel/ai/compare/v0.10.0...0.x)
+## [Unreleased](https://github.com/laravel/ai/compare/v0.10.1...0.x)
+
+## [v0.10.1](https://github.com/laravel/ai/compare/v0.10.0...v0.10.1) - 2026-07-21
+
+* [0.x] Update .gitattributes by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/ai/pull/806
+* Update Gemini default models by [@pushpak1300](https://github.com/pushpak1300) in https://github.com/laravel/ai/pull/807
 
 ## [v0.10.0](https://github.com/laravel/ai/compare/v0.9.1...v0.10.0) - 2026-07-21
 
