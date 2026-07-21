@@ -1,6 +1,15 @@
 # Release Notes
 
-## [Unreleased](https://github.com/laravel/ai/compare/v0.9.1...0.x)
+## [Unreleased](https://github.com/laravel/ai/compare/v0.10.0...0.x)
+
+## [v0.10.0](https://github.com/laravel/ai/compare/v0.9.1...v0.10.0) - 2026-07-21
+
+* Add Rector and Laravel Rector, apply automated refactors by [@pushpak1300](https://github.com/pushpak1300) in https://github.com/laravel/ai/pull/784
+* Support multimodal for Gemini and VoyageAI by [@paulinevos](https://github.com/paulinevos) in https://github.com/laravel/ai/pull/798
+* Bedrock: support cross-account AssumeRole credential provider by [@amjosuesanchez](https://github.com/amjosuesanchez) in https://github.com/laravel/ai/pull/566
+* Add summarize macro for text summarization by [@pushpak1300](https://github.com/pushpak1300) in https://github.com/laravel/ai/pull/800
+* Add human-in-the-loop by [@pushpak1300](https://github.com/pushpak1300) in https://github.com/laravel/ai/pull/773
+* Store conversation participants polymorphically by [@pushpak1300](https://github.com/pushpak1300) in https://github.com/laravel/ai/pull/795
 
 ## [v0.9.1](https://github.com/laravel/ai/compare/v0.9.0...v0.9.1) - 2026-07-14
 
