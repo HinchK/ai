@@ -148,6 +148,49 @@ test('it stores sparse keyed tool calls and results as JSON arrays', function ()
         ->and(array_is_list(json_decode((string) $record->tool_results, true)))->toBeTrue();
 });
 
+test('it restores persisted tool result failure status', function (): void {
+    $store = new DatabaseConversationStore;
+    $conversationId = $store->storeConversation('user', 1, 'Tool conversation');
+
+    DB::table('agent_conversation_messages')->insert([
+        'id' => 'message-1',
+        'conversation_id' => $conversationId,
+        'participant_type' => 'user',
+        'participant_id' => 1,
+        'agent' => ToolUsingAgent::class,
+        'role' => 'assistant',
+        'content' => '',
+        'attachments' => '[]',
+        'tool_calls' => json_encode([
+            ['id' => 'call-1', 'name' => 'query-resources', 'arguments' => []],
+        ]),
+        'tool_results' => json_encode([
+            [
+                'id' => 'call-1',
+                'name' => 'query-resources',
+                'arguments' => [],
+                'result' => 'Tool not found',
+                'result_id' => null,
+                'successful' => false,
+                'error' => 'Tool not found',
+            ],
+        ]),
+        'usage' => '[]',
+        'meta' => '[]',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $result = $store->getLatestConversationMessages($conversationId, 10)
+        ->first(fn (Message $message): bool => $message instanceof ToolResultMessage)
+        ?->toolResults
+        ->first();
+
+    expect($result)->not->toBeNull()
+        ->and($result->successful)->toBeFalse()
+        ->and($result->error)->toBe('Tool not found');
+});
+
 test('a bare rejection resume does not persist a blank assistant row', function (): void {
     $store = new DatabaseConversationStore;
     $conversationId = $store->storeConversation('user', 1, 'Approval conversation');

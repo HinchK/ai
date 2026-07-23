@@ -203,13 +203,11 @@ class TextGenerationLoop
             }
 
             foreach ($resumption->results as $toolResult) {
-                $failed = in_array($toolResult->id, $resumption->failedToolCallIds, true);
-
                 yield (new ToolResultEvent(
                     $this->generateEventId(),
                     $toolResult,
-                    ! $toolResult->denied && ! $failed,
-                    $toolResult->denied || $failed ? $toolResult->result : null,
+                    $toolResult->successful,
+                    $toolResult->error,
                     time(),
                     denied: $toolResult->denied,
                 ))->withInvocationId($invocationId);
@@ -289,13 +287,11 @@ class TextGenerationLoop
             [$toolResults, $pendingApprovals] = $this->stepToolResultsWithOptions($result, $stepContext->isFinalStep, $tools, $options, $context);
 
             foreach ($toolResults as $toolResult) {
-                $successful = ! $stepContext->isFinalStep && $this->findTool($toolResult->name, $tools) instanceof Tool;
-
                 yield (new ToolResultEvent(
                     $this->generateEventId(),
                     $toolResult,
-                    $successful,
-                    $successful ? null : $toolResult->result,
+                    $toolResult->successful,
+                    $toolResult->error,
                     time(),
                 ))->withInvocationId($invocationId);
             }
@@ -424,16 +420,22 @@ class TextGenerationLoop
         $toolResults = array_map(function (array $pair) use ($tools, $isFinalStep, $context) {
             [$toolCall, $tool] = $pair;
 
+            $result = match (true) {
+                ! $tool instanceof Tool && $this->repairsToolCalls => "Tool '{$toolCall->name}' does not exist. Available tools: {$this->availableToolNames($tools)}.",
+                $isFinalStep => 'The agent reached its maximum number of steps without running this tool call.',
+                default => $this->executeTool($tool, $toolCall->arguments, $toolCall->id, $context),
+            };
+
+            $successful = $tool instanceof Tool && ! $isFinalStep;
+
             return new ToolResult(
                 $toolCall->id,
                 $toolCall->name,
                 $toolCall->arguments,
-                match (true) {
-                    ! $tool instanceof Tool && $this->repairsToolCalls => "Tool '{$toolCall->name}' does not exist. Available tools: {$this->availableToolNames($tools)}.",
-                    $isFinalStep => 'The agent reached its maximum number of steps without running this tool call.',
-                    default => $this->executeTool($tool, $toolCall->arguments, $toolCall->id, $context),
-                },
+                $result,
                 $toolCall->resultId,
+                successful: $successful,
+                error: $successful ? null : $result,
             );
         }, $resolved);
 
@@ -524,9 +526,12 @@ class TextGenerationLoop
                 throw new NoSuchToolException($toolCall->name);
             }
 
+            $failed = false;
+
             try {
                 $result = $this->executeTool($tool, $arguments, $toolCall->id, $context);
             } catch (Throwable $exception) {
+                $failed = true;
                 $failedToolCallIds[] = $toolCall->id;
                 $result = 'The tool call failed: '.$exception->getMessage();
             }
@@ -537,6 +542,8 @@ class TextGenerationLoop
                 $arguments,
                 $result,
                 $toolCall->resultId,
+                successful: ! $failed,
+                error: $failed ? $result : null,
             );
         }
 

@@ -47,3 +47,51 @@ test('tool result from array hydrates the denied flag from its key', function ()
     expect(ToolResult::fromArray(['id' => 'id', 'name' => 'name', 'arguments' => [], 'result' => 'val'])->denied)->toBeFalse()
         ->and(ToolResult::fromArray(['id' => 'id', 'name' => 'name', 'arguments' => [], 'result' => 'val', 'denied' => true])->denied)->toBeTrue();
 });
+
+test('tool result serializes failure status and error details', function (): void {
+    $result = new ToolResult(
+        id: 'call-1',
+        name: 'query-resources',
+        arguments: [],
+        result: 'Tool not found',
+        successful: false,
+        error: 'Tool not found',
+    );
+
+    expect($result->toArray())->toMatchArray([
+        'successful' => false,
+        'error' => 'Tool not found',
+    ]);
+});
+
+test('tool result hydrates status while remaining compatible with legacy payloads', function (): void {
+    $failed = ToolResult::fromArray([
+        'id' => 'call-1',
+        'name' => 'query-resources',
+        'arguments' => [],
+        'result' => 'Tool not found',
+        'successful' => false,
+        'error' => 'Tool not found',
+    ]);
+
+    $legacySuccess = ToolResult::fromArray([
+        'id' => 'call-2',
+        'name' => 'query-resources',
+        'arguments' => [],
+        'result' => 'Berlin',
+    ]);
+
+    $legacyDenied = ToolResult::fromArray([
+        'id' => 'call-3',
+        'name' => 'delete-resource',
+        'arguments' => [],
+        'result' => 'Not approved',
+        'denied' => true,
+    ]);
+
+    expect($failed->successful)->toBeFalse()
+        ->and($failed->error)->toBe('Tool not found')
+        ->and($legacySuccess->successful)->toBeTrue()
+        ->and($legacySuccess->error)->toBeNull()
+        ->and($legacyDenied->successful)->toBeFalse();
+});
