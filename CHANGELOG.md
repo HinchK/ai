@@ -1,6 +1,31 @@
 # Release Notes
 
-## [Unreleased](https://github.com/laravel/ai/compare/v0.10.2...0.x)
+## [Unreleased](https://github.com/laravel/ai/compare/v0.10.3...0.x)
+
+## [v0.10.3](https://github.com/laravel/ai/compare/v0.10.2...v0.10.3) - 2026-08-06
+
+### What's Changed
+
+* Change minimum required AWS SDK version by [@stevencsimpson](https://github.com/stevencsimpson) in https://github.com/laravel/ai/pull/808
+* Add Vercel protocol coverage for text and reasoning stream events by [@dfinchenko](https://github.com/dfinchenko) in https://github.com/laravel/ai/pull/845
+* Add Gemini tool-loop coverage for thought signature preservation by [@sulimanbenhalim](https://github.com/sulimanbenhalim) in https://github.com/laravel/ai/pull/834
+* Azure OpenAI - Add web search support by [@jesse-bos](https://github.com/jesse-bos) in https://github.com/laravel/ai/pull/843
+* Parse Cohere Embed v4's type-keyed embeddings shape on Bedrock by [@serpentblade](https://github.com/serpentblade) in https://github.com/laravel/ai/pull/725
+* Expose raw http response in model API response by [@dumbbellcode](https://github.com/dumbbellcode) in https://github.com/laravel/ai/pull/714
+* Add embeddings support to the OpenAI-compatible provider by [@ademola-emmanuel](https://github.com/ademola-emmanuel) in https://github.com/laravel/ai/pull/841
+* Add Vercel protocol coverage for citation, error, and default tool error parts by [@dfinchenko](https://github.com/dfinchenko) in https://github.com/laravel/ai/pull/849
+* Support custom HTTP headers via provider connection config by [@AngadSethi](https://github.com/AngadSethi) in https://github.com/laravel/ai/pull/838
+* Run the test suite in parallel by [@pushpak1300](https://github.com/pushpak1300) in https://github.com/laravel/ai/pull/851
+* Preserve header casing when merging configured headers by [@pushpak1300](https://github.com/pushpak1300) in https://github.com/laravel/ai/pull/852
+
+### New Contributors
+
+* [@stevencsimpson](https://github.com/stevencsimpson) made their first contribution in https://github.com/laravel/ai/pull/808
+* [@jesse-bos](https://github.com/jesse-bos) made their first contribution in https://github.com/laravel/ai/pull/843
+* [@serpentblade](https://github.com/serpentblade) made their first contribution in https://github.com/laravel/ai/pull/725
+* [@AngadSethi](https://github.com/AngadSethi) made their first contribution in https://github.com/laravel/ai/pull/838
+
+**Full Changelog**: https://github.com/laravel/ai/compare/v0.10.2...v0.10.3
 
 ## [v0.10.2](https://github.com/laravel/ai/compare/v0.10.1...v0.10.2) - 2026-07-28
 
