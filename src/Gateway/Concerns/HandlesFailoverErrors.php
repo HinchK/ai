@@ -68,13 +68,13 @@ trait HandlesFailoverErrors
     }
 
     /**
-     * The status codes that indicate a provider is overloaded.
+     * The status codes that indicate a provider is transiently unavailable and the request should fail over.
      *
      * @return list<int>
      */
     protected function overloadedStatusCodes(): array
     {
-        return [503];
+        return [502, 503, 504, 520, 522, 524];
     }
 
     /**
