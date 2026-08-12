@@ -3,9 +3,11 @@
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Image;
+use Laravel\Ai\Jobs\GenerateImage;
 use Laravel\Ai\Prompts\ImagePrompt;
 use Laravel\Ai\Prompts\QueuedImagePrompt;
 use Laravel\Ai\Responses\Data\GeneratedImage;
@@ -191,6 +193,38 @@ test('queued images can be faked', function (): void {
     Image::assertQueued(fn (QueuedImagePrompt $prompt): bool => $prompt->prompt === 'First prompt');
 
     Image::assertNotQueued(fn (QueuedImagePrompt $prompt): bool => $prompt->prompt === 'Second prompt');
+});
+
+test('queued images can be faked and then callback is executed', function (): void {
+    Image::fake([base64_encode('image')]);
+
+    $GLOBALS['imageResponse'] = null;
+
+    Image::of('First prompt')->queue()->then(function ($response): void {
+        $GLOBALS['imageResponse'] = $response;
+    });
+
+    Image::assertQueued(fn (QueuedImagePrompt $prompt): bool => $prompt->prompt === 'First prompt');
+
+    expect($GLOBALS['imageResponse'])->toBeInstanceOf(ImageResponse::class);
+    expect($GLOBALS['imageResponse']->firstImage()->image)->toEqual(base64_encode('image'));
+});
+
+test('queued images can be faked and then callback is not executed if queue is faked', function (): void {
+    Image::fake([base64_encode('image')]);
+    Queue::fake();
+
+    $GLOBALS['imageResponse'] = null;
+
+    Image::of('First prompt')->queue()->then(function ($response): void {
+        $GLOBALS['imageResponse'] = $response;
+    });
+
+    Image::assertQueued(fn (QueuedImagePrompt $prompt): bool => $prompt->prompt === 'First prompt');
+
+    expect($GLOBALS['imageResponse'])->toBeNull();
+
+    Queue::assertPushed(GenerateImage::class);
 });
 
 test('can assert no images were queued', function (): void {

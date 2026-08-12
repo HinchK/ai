@@ -2,10 +2,12 @@
 
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Ai\Audio;
 use Laravel\Ai\Enums\Lab;
+use Laravel\Ai\Jobs\GenerateAudio;
 use Laravel\Ai\Prompts\AudioPrompt;
 use Laravel\Ai\Prompts\QueuedAudioPrompt;
 use Laravel\Ai\Providers\ElevenLabsProvider;
@@ -218,6 +220,38 @@ test('queued audio can be faked', function (): void {
     Audio::assertQueued(fn (QueuedAudioPrompt $prompt): bool => $prompt->text === 'First text');
 
     Audio::assertNotQueued(fn (QueuedAudioPrompt $prompt): bool => $prompt->text === 'Second text');
+});
+
+test('queued audio can be faked and then callback is executed', function (): void {
+    Audio::fake([base64_encode('audio')]);
+
+    $GLOBALS['audioResponse'] = null;
+
+    Audio::of('First text')->queue()->then(function ($response): void {
+        $GLOBALS['audioResponse'] = $response;
+    });
+
+    Audio::assertQueued(fn (QueuedAudioPrompt $prompt): bool => $prompt->text === 'First text');
+
+    expect($GLOBALS['audioResponse'])->toBeInstanceOf(AudioResponse::class);
+    expect($GLOBALS['audioResponse']->audio)->toEqual(base64_encode('audio'));
+});
+
+test('queued audio can be faked and then callback is not executed if queue is faked', function (): void {
+    Audio::fake([base64_encode('audio')]);
+    Queue::fake();
+
+    $GLOBALS['audioResponse'] = null;
+
+    Audio::of('First text')->queue()->then(function ($response): void {
+        $GLOBALS['audioResponse'] = $response;
+    });
+
+    Audio::assertQueued(fn (QueuedAudioPrompt $prompt): bool => $prompt->text === 'First text');
+
+    expect($GLOBALS['audioResponse'])->toBeNull();
+
+    Queue::assertPushed(GenerateAudio::class);
 });
 
 test('can assert no audio was queued', function (): void {
