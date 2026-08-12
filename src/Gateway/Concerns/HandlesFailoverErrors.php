@@ -3,8 +3,10 @@
 namespace Laravel\Ai\Gateway\Concerns;
 
 use Closure;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Laravel\Ai\Exceptions\InsufficientCreditsException;
+use Laravel\Ai\Exceptions\ProviderConnectionException;
 use Laravel\Ai\Exceptions\ProviderOverloadedException;
 use Laravel\Ai\Exceptions\RateLimitedException;
 
@@ -22,6 +24,10 @@ trait HandlesFailoverErrors
     {
         try {
             return $callback();
+        } catch (ConnectionException $connectionException) {
+            throw ProviderConnectionException::forProvider(
+                $providerName, $connectionException->getCode(), $connectionException
+            );
         } catch (RequestException $requestException) {
             if ($requestException->response !== null) {
                 $status = $requestException->response->status();
