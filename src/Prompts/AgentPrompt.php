@@ -22,6 +22,11 @@ class AgentPrompt extends Prompt
 
     public readonly ?string $parentToolInvocationId;
 
+    protected readonly bool $isFinalAttempt;
+
+    /**
+     * @param  bool  $isFinalAttempt  Whether the caller has run out of providers to retry this prompt against.
+     */
     public function __construct(
         Agent $agent,
         string $prompt,
@@ -33,6 +38,7 @@ class AgentPrompt extends Prompt
         ?Decisions $approvalDecisions = null,
         ?string $parentInvocationId = null,
         ?string $parentToolInvocationId = null,
+        bool $isFinalAttempt = true,
     ) {
         parent::__construct($prompt, $provider, $model, $approvalDecisions);
 
@@ -42,6 +48,7 @@ class AgentPrompt extends Prompt
         $this->invocationId = $invocationId;
         $this->parentInvocationId = $parentInvocationId;
         $this->parentToolInvocationId = $parentToolInvocationId;
+        $this->isFinalAttempt = $isFinalAttempt;
     }
 
     /**
@@ -92,6 +99,7 @@ class AgentPrompt extends Prompt
             $this->approvalDecisions,
             $this->parentInvocationId,
             $this->parentToolInvocationId,
+            $this->isFinalAttempt,
         );
     }
 
@@ -109,5 +117,15 @@ class AgentPrompt extends Prompt
     public function provider(): TextProvider
     {
         return $this->provider;
+    }
+
+    /**
+     * Determine whether the caller has run out of providers to retry this prompt against.
+     *
+     * @internal
+     */
+    public function isFinalAttempt(): bool
+    {
+        return $this->isFinalAttempt;
     }
 }
