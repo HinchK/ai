@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use Laravel\Ai\Approvals\Approval;
 use Laravel\Ai\Approvals\Decision;
 use Laravel\Ai\Approvals\PendingApproval;
+use Laravel\Ai\Attributes\RepairToolCalls;
 use Laravel\Ai\Contracts\Approvable;
 use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\SupportsToolSearch;
@@ -21,6 +22,7 @@ use Laravel\Ai\Gateway\Concerns\InvokesTools;
 use Laravel\Ai\Messages\AssistantMessage;
 use Laravel\Ai\Messages\Message;
 use Laravel\Ai\Messages\ToolResultMessage;
+use Laravel\Ai\Providers\Tools\ProviderTool;
 use Laravel\Ai\Providers\Tools\ToolSearch;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\Meta;
@@ -35,12 +37,15 @@ use Laravel\Ai\Streaming\Events\StreamEnd;
 use Laravel\Ai\Streaming\Events\ToolApprovalRequest;
 use Laravel\Ai\Streaming\Events\ToolResult as ToolResultEvent;
 use Laravel\Ai\Tools\Request;
+use Laravel\Ai\Tools\ToolNameResolver;
 use LogicException;
 use Throwable;
 
 class TextGenerationLoop
 {
     use HandlesToolApprovals, InvokesTools;
+
+    private bool $repairsToolCalls = false;
 
     /**
      * The default ceiling for the derived step budget when it is not set explicitly.
@@ -56,7 +61,7 @@ class TextGenerationLoop
     }
 
     /**
-     * @param  Tool[]  $tools
+     * @param  array<Tool|ProviderTool>  $tools
      * @param  array<string, mixed>|null  $schema
      * @param  array<string, Decision>|null  $approval
      */
@@ -117,7 +122,7 @@ class TextGenerationLoop
                 $stepContext,
             );
 
-            [$toolResults, $pendingApprovals] = $this->stepToolResults($lastResult, $stepContext->isFinalStep, $tools);
+            [$toolResults, $pendingApprovals] = $this->stepToolResultsWithOptions($lastResult, $stepContext->isFinalStep, $tools, $options);
 
             $steps->push($this->buildStep($lastResult, $toolResults));
 
@@ -147,7 +152,7 @@ class TextGenerationLoop
     }
 
     /**
-     * @param  Tool[]  $tools
+     * @param  array<Tool|ProviderTool>  $tools
      * @param  array<string, mixed>|null  $schema
      * @param  array<string, Decision>|null  $approval
      * @param  array{Collection<int, ToolCall>, Collection<string, ?Tool>}|null  $validatedApproval  the caller's own eager validateApproval() result, reused instead of re-validating
@@ -247,14 +252,16 @@ class TextGenerationLoop
             $accumulatedUsage = $accumulatedUsage->add($result->usage);
             $finalReason = $result->finishReason;
 
-            [$toolResults, $pendingApprovals] = $this->stepToolResults($result, $stepContext->isFinalStep, $tools);
+            [$toolResults, $pendingApprovals] = $this->stepToolResultsWithOptions($result, $stepContext->isFinalStep, $tools, $options);
 
             foreach ($toolResults as $toolResult) {
+                $successful = ! $stepContext->isFinalStep && $this->findTool($toolResult->name, $tools) instanceof Tool;
+
                 yield (new ToolResultEvent(
                     $this->generateEventId(),
                     $toolResult,
-                    ! $stepContext->isFinalStep,
-                    $stepContext->isFinalStep ? $toolResult->result : null,
+                    $successful,
+                    $successful ? null : $toolResult->result,
                     time(),
                 ))->withInvocationId($invocationId);
             }
@@ -298,7 +305,7 @@ class TextGenerationLoop
     /**
      * Resolve the step budget: explicit `maxSteps`, else 1.5x tools capped at the ceiling, else 5.
      *
-     * @param  Tool[]  $tools
+     * @param  array<Tool|ProviderTool>  $tools
      */
     protected function resolveMaxSteps(?TextGenerationOptions $options, array $tools): int
     {
@@ -307,14 +314,34 @@ class TextGenerationLoop
         }
 
         $count = ToolSearch::budget($tools);
+        $maxSteps = $count > 0 ? min((int) round($count * 1.5), self::DEFAULT_MAX_STEPS) : 5;
 
-        return $count > 0 ? min((int) round($count * 1.5), self::DEFAULT_MAX_STEPS) : 5;
+        return $maxSteps + (int) RepairToolCalls::isAppliedTo($options?->agent);
+    }
+
+    /**
+     * Resolve tool results using the generation options for the current step.
+     *
+     * @param  array<Tool|ProviderTool>  $tools
+     * @return array{array<int, ToolResult>, Collection<int, PendingApproval>}
+     */
+    private function stepToolResultsWithOptions(StepResponse $result, bool $isFinalStep, array $tools, ?TextGenerationOptions $options): array
+    {
+        $repairsToolCalls = $this->repairsToolCalls;
+
+        $this->repairsToolCalls = RepairToolCalls::isAppliedTo($options?->agent);
+
+        try {
+            return $this->stepToolResults($result, $isFinalStep, $tools);
+        } finally {
+            $this->repairsToolCalls = $repairsToolCalls;
+        }
     }
 
     /**
      * Tool results to continue the loop with, plus any pending approvals that pause it.
      *
-     * @param  Tool[]  $tools
+     * @param  array<Tool|ProviderTool>  $tools
      * @return array{array<int, ToolResult>, Collection<int, PendingApproval>}
      */
     protected function stepToolResults(StepResponse $result, bool $isFinalStep, array $tools): array
@@ -332,7 +359,7 @@ class TextGenerationLoop
 
     /**
      * @param  ToolCall[]  $toolCalls
-     * @param  Tool[]  $tools
+     * @param  array<Tool|ProviderTool>  $tools
      * @return array{array<int, ToolResult>, Collection<int, PendingApproval>}
      */
     protected function approvalAwareToolResults(array $toolCalls, array $tools, bool $isFinalStep = false): array
@@ -356,23 +383,25 @@ class TextGenerationLoop
                 continue;
             }
 
-            if (! $tool instanceof Tool && ! $isFinalStep) {
+            if (! $tool instanceof Tool && ! $isFinalStep && ! $this->repairsToolCalls) {
                 throw new NoSuchToolException($toolCall->name);
             }
 
             $resolved[] = [$toolCall, $tool];
         }
 
-        $toolResults = array_map(function (array $pair) use ($isFinalStep) {
+        $toolResults = array_map(function (array $pair) use ($tools, $isFinalStep) {
             [$toolCall, $tool] = $pair;
 
             return new ToolResult(
                 $toolCall->id,
                 $toolCall->name,
                 $toolCall->arguments,
-                $isFinalStep || ! $tool instanceof Tool
-                    ? 'The agent reached its maximum number of steps without running this tool call.'
-                    : $this->executeTool($tool, $toolCall->arguments, $toolCall->id),
+                match (true) {
+                    ! $tool instanceof Tool && $this->repairsToolCalls => "Tool '{$toolCall->name}' does not exist. Available tools: {$this->availableToolNames($tools)}.",
+                    $isFinalStep => 'The agent reached its maximum number of steps without running this tool call.',
+                    default => $this->executeTool($tool, $toolCall->arguments, $toolCall->id),
+                },
                 $toolCall->resultId,
             );
         }, $resolved);
@@ -381,11 +410,24 @@ class TextGenerationLoop
     }
 
     /**
+     * The names of the locally executable tools, as advertised back to a model that called an unknown one.
+     *
+     * @param  array<Tool|ProviderTool>  $tools
+     */
+    protected function availableToolNames(array $tools): string
+    {
+        return implode(', ', array_map(
+            ToolNameResolver::resolve(...),
+            array_filter($tools, fn (mixed $tool): bool => $tool instanceof Tool),
+        )) ?: 'none';
+    }
+
+    /**
      * Apply the approval's decisions to the pending pause, returning the updated history and resume state.
      *
      * @param  array<string, Decision>  $approval
      * @param  Message[]  $messages
-     * @param  Tool[]  $tools
+     * @param  array<Tool|ProviderTool>  $tools
      * @param  array{Collection<int, ToolCall>, Collection<string, ?Tool>}|null  $validatedApproval  a caller's own eager validateApproval() result, reused instead of re-validating
      */
     protected function resumeFromApproval(array $approval, array $messages, array $tools, ?array $validatedApproval = null): ApprovalResumption
@@ -412,7 +454,7 @@ class TextGenerationLoop
     /**
      * @param  array<string, Decision>  $approval
      * @param  Message[]  $messages
-     * @param  Tool[]  $tools
+     * @param  array<Tool|ProviderTool>  $tools
      * @param  array{Collection<int, ToolCall>, Collection<string, ?Tool>}|null  $validatedApproval  a caller's own eager validateApproval() result, reused instead of re-validating
      * @return array{array<int, ToolResult>, bool, array<int, string>}
      */
@@ -475,7 +517,7 @@ class TextGenerationLoop
      *
      * @param  array<string, Decision>  $approval
      * @param  Message[]  $messages
-     * @param  Tool[]  $tools
+     * @param  array<Tool|ProviderTool>  $tools
      * @return array{Collection<int, ToolCall>, Collection<string, ?Tool>}
      */
     public function validateApproval(array $approval, array $messages, array $tools): array
@@ -483,6 +525,7 @@ class TextGenerationLoop
         [$pendingToolCalls, $resolvedToolCallIds] = $this->pendingToolCalls($messages);
 
         $pendingIds = $pendingToolCalls->pluck('id');
+
         $decisionIds = collect(array_keys($approval))->reject(
             fn ($id) => $id === '*',
         );
@@ -495,8 +538,12 @@ class TextGenerationLoop
             $toolCall->id => $this->approvalForTool($resolvedTools[$toolCall->id], $toolCall),
         ]);
 
-        $gated = $pendingToolCalls->filter(fn (ToolCall $toolCall) => $approvals[$toolCall->id] instanceof Approval);
+        $gated = $pendingToolCalls->filter(
+            fn (ToolCall $toolCall) => $approvals[$toolCall->id] instanceof Approval
+        );
+
         $unknown = $decisionIds->diff($pendingIds);
+
         $missing = array_key_exists('*', $approval)
             ? collect()
             : $gated->pluck('id')->diff($decisionIds);

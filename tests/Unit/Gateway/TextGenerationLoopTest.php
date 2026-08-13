@@ -3,7 +3,9 @@
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Approvals\Approval;
 use Laravel\Ai\Approvals\Decision;
+use Laravel\Ai\Attributes\RepairToolCalls;
 use Laravel\Ai\Concerns\InteractsWithApprovals;
+use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Approvable;
 use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\SupportsToolSearch;
@@ -18,7 +20,9 @@ use Laravel\Ai\Gateway\TextGenerationOptions;
 use Laravel\Ai\Messages\AssistantMessage;
 use Laravel\Ai\Messages\Message;
 use Laravel\Ai\Messages\ToolResultMessage;
+use Laravel\Ai\Promptable;
 use Laravel\Ai\Providers\Tools\ToolSearch;
+use Laravel\Ai\Providers\Tools\WebSearch;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\ToolCall;
@@ -560,6 +564,28 @@ test('it does not execute tool calls on the final generation step', function ():
         ->and($response->steps->first()->toolResults)->toHaveCount(1);
 });
 
+test('it preserves the exhausted result for unknown tools without the repair attribute', function (): void {
+    $gateway = new TextGenerationLoopFakeGateway([
+        new StepResponse('', [new ToolCall('call-1', 'MissingTool', [], 'call-1')], FinishReason::ToolCalls, new Usage, new Meta('fake', 'model')),
+    ]);
+
+    $response = (new TextGenerationLoop($gateway))->generate(
+        textGenerationLoopProvider(),
+        'model',
+        null,
+        [],
+        [new TextGenerationLoopCountingTool],
+        null,
+        new TextGenerationOptions(maxSteps: 1),
+        null,
+    );
+
+    expect($gateway->generateCalls)->toBe(1)
+        ->and($gateway->contexts[0]->isFinalStep)->toBeTrue()
+        ->and($response->toolResults)->toHaveCount(1)
+        ->and($response->toolResults[0]->result)->toBe('The agent reached its maximum number of steps without running this tool call.');
+});
+
 test('it holds stream end until the streamed tool loop is complete', function (): void {
     $tool = new TextGenerationLoopCountingTool;
     $firstToolCall = new ToolCall('call-1', TextGenerationLoopCountingTool::class, [], 'call-1');
@@ -707,7 +733,7 @@ test('it throws when generation tool calls do not match local tools', function (
         [],
         [],
         null,
-        null,
+        new TextGenerationOptions(agent: new TextGenerationLoopAgent),
         null,
     ))->toThrow(NoSuchToolException::class, "Model tried to call unavailable tool 'MissingTool'.");
 });
@@ -732,6 +758,165 @@ test('it throws when streaming tool calls do not match local tools', function ()
         null,
         null,
     )))->toThrow(NoSuchToolException::class);
+});
+
+test('it repairs missing generation tool calls for agents with the repair attribute', function (): void {
+    $tool = new TextGenerationLoopCountingTool;
+    $gateway = new TextGenerationLoopFakeGateway([
+        new StepResponse('', [new ToolCall('call-1', 'MissingTool', [], 'call-1')], FinishReason::ToolCalls, new Usage, new Meta('fake', 'model')),
+        new StepResponse('Done', [], FinishReason::Stop, new Usage, new Meta('fake', 'model')),
+    ]);
+
+    $response = (new TextGenerationLoop($gateway))->generate(
+        textGenerationLoopProvider(),
+        'model',
+        null,
+        [],
+        [$tool, new WebSearch],
+        null,
+        new TextGenerationOptions(maxSteps: 2, agent: new TextGenerationLoopRepairingAgent),
+        null,
+    );
+
+    expect($gateway->generateCalls)->toBe(2)
+        ->and($response->text)->toBe('Done')
+        ->and($response->toolResults)->toHaveCount(1)
+        ->and($response->toolResults[0]->result)->toBe("Tool 'MissingTool' does not exist. Available tools: TextGenerationLoopCountingTool.");
+});
+
+test('it budgets an implicit step for a repaired tool call', function (): void {
+    $tool = new TextGenerationLoopCountingTool;
+    $toolCall = new ToolCall('call-2', TextGenerationLoopCountingTool::class, [], 'call-2');
+    $gateway = new TextGenerationLoopFakeGateway([
+        new StepResponse('', [new ToolCall('call-1', 'MissingTool', [], 'call-1')], FinishReason::ToolCalls, new Usage, new Meta('fake', 'model')),
+        new StepResponse('', [$toolCall], FinishReason::ToolCalls, new Usage, new Meta('fake', 'model')),
+        new StepResponse('Done', [], FinishReason::Stop, new Usage, new Meta('fake', 'model')),
+    ]);
+
+    $response = (new TextGenerationLoop($gateway))->generate(
+        textGenerationLoopProvider(),
+        'model',
+        null,
+        [],
+        [$tool],
+        null,
+        new TextGenerationOptions(agent: new TextGenerationLoopRepairingAgent),
+        null,
+    );
+
+    expect($gateway->generateCalls)->toBe(3)
+        ->and($gateway->contexts[1]->isFinalStep)->toBeFalse()
+        ->and($gateway->contexts[2]->isFinalStep)->toBeTrue()
+        ->and($tool->calls)->toBe(1)
+        ->and($response->text)->toBe('Done');
+});
+
+test('it executes local tools when provider-hosted tools are also registered', function (): void {
+    $tool = new TextGenerationLoopCountingTool;
+    $toolCall = new ToolCall('call-1', TextGenerationLoopCountingTool::class, [], 'call-1');
+    $gateway = new TextGenerationLoopFakeGateway([
+        new StepResponse('', [$toolCall], FinishReason::ToolCalls, new Usage, new Meta('fake', 'model')),
+        new StepResponse('Done', [], FinishReason::Stop, new Usage, new Meta('fake', 'model')),
+    ]);
+
+    $response = (new TextGenerationLoop($gateway))->generate(
+        textGenerationLoopProvider(),
+        'model',
+        null,
+        [],
+        [new WebSearch, $tool],
+        null,
+        new TextGenerationOptions(maxSteps: 2),
+        null,
+    );
+
+    expect($tool->calls)->toBe(1)
+        ->and($gateway->generateCalls)->toBe(2)
+        ->and($response->text)->toBe('Done');
+});
+
+test('it repairs missing streamed tool calls for agents with the repair attribute', function (): void {
+    $tool = new TextGenerationLoopCountingTool;
+    $missingToolCall = new ToolCall('call-1', 'MissingTool', [], 'call-1');
+    $toolCall = new ToolCall('call-2', TextGenerationLoopCountingTool::class, [], 'call-2');
+    $gateway = new TextGenerationLoopFakeGateway(streams: [
+        textGenerationLoopStreamStep(
+            events: [new ToolCallEvent('tool-call-event', $missingToolCall, time())],
+            returns: new StepResponse('', [$missingToolCall], FinishReason::ToolCalls, new Usage, new Meta('fake', 'model')),
+        ),
+        textGenerationLoopStreamStep(
+            events: [new ToolCallEvent('tool-call-event-2', $toolCall, time())],
+            returns: new StepResponse('', [$toolCall], FinishReason::ToolCalls, new Usage, new Meta('fake', 'model')),
+        ),
+        textGenerationLoopStreamStep(
+            events: [new TextDelta('text-delta', 'message-1', 'Done', time())],
+            returns: new StepResponse('Done', [], FinishReason::Stop, new Usage, new Meta('fake', 'model')),
+        ),
+    ]);
+
+    $events = iterator_to_array((new TextGenerationLoop($gateway))->stream(
+        'invocation-1',
+        textGenerationLoopProvider(),
+        'model',
+        null,
+        [],
+        [$tool],
+        null,
+        new TextGenerationOptions(agent: new TextGenerationLoopRepairingAgent),
+        null,
+    ));
+
+    $toolResults = collect($events)->whereInstanceOf(ToolResultEvent::class)->values();
+    $repairResult = $toolResults[0];
+
+    expect($gateway->streamCalls)->toBe(3)
+        ->and($tool->calls)->toBe(1)
+        ->and($toolResults)->toHaveCount(2)
+        ->and($repairResult->toolResult->result)->toBe("Tool 'MissingTool' does not exist. Available tools: TextGenerationLoopCountingTool.")
+        ->and($repairResult->successful)->toBeFalse()
+        ->and($repairResult->error)->toBe($repairResult->toolResult->result)
+        ->and($repairResult->toVercelProtocolArray())->toBe([
+            'type' => 'tool-output-error',
+            'toolCallId' => 'call-1',
+            'errorText' => $repairResult->toolResult->result,
+        ])
+        ->and($toolResults[1]->successful)->toBeTrue();
+});
+
+test('it reports no available tools while repairing missing tool calls', function (): void {
+    $gateway = new TextGenerationLoopFakeGateway([
+        new StepResponse('', [new ToolCall('call-1', 'MissingTool', [], 'call-1')], FinishReason::ToolCalls, new Usage, new Meta('fake', 'model')),
+        new StepResponse('Done', [], FinishReason::Stop, new Usage, new Meta('fake', 'model')),
+    ]);
+
+    $response = (new TextGenerationLoop($gateway))->generate(
+        textGenerationLoopProvider(),
+        'model',
+        null,
+        [],
+        [],
+        null,
+        new TextGenerationOptions(maxSteps: 2, agent: new TextGenerationLoopRepairingAgent),
+        null,
+    );
+
+    expect($response->toolResults[0]->result)->toBe("Tool 'MissingTool' does not exist. Available tools: none.");
+});
+
+test('it throws when an approved tool is unavailable despite the repair attribute', function (): void {
+    $toolCall = new ToolCall('call-1', 'MissingTool', [], 'call-1');
+
+    expect(fn () => (new TextGenerationLoop(new TextGenerationLoopFakeGateway))->generate(
+        textGenerationLoopProvider(),
+        'model',
+        null,
+        [new AssistantMessage('', collect([$toolCall]))],
+        [],
+        null,
+        new TextGenerationOptions(agent: new TextGenerationLoopRepairingAgent),
+        null,
+        ['call-1' => Decision::approve()],
+    ))->toThrow(NoSuchToolException::class);
 });
 
 test('it emits a terminal stream end when a turn yields no stream end or error', function (): void {
@@ -983,6 +1168,44 @@ class TextGenerationLoopApprovableTool extends TextGenerationLoopCountingTool im
         return 'handled '.$request['value'];
     }
 }
+
+#[RepairToolCalls]
+class TextGenerationLoopRepairingAgent implements Agent
+{
+    use Promptable;
+
+    public function instructions(): string
+    {
+        return 'You are a helpful assistant.';
+    }
+}
+
+class TextGenerationLoopAgent implements Agent
+{
+    use Promptable;
+
+    public function instructions(): string
+    {
+        return 'You are a helpful assistant.';
+    }
+}
+
+class ExtendedTextGenerationLoop extends TextGenerationLoop
+{
+    protected function stepToolResults(StepResponse $result, bool $isFinalStep, array $tools): array
+    {
+        return parent::stepToolResults($result, $isFinalStep, $tools);
+    }
+
+    protected function approvalAwareToolResults(array $toolCalls, array $tools, bool $isFinalStep = false): array
+    {
+        return parent::approvalAwareToolResults($toolCalls, $tools, $isFinalStep);
+    }
+}
+
+test('it preserves the generation loop protected extension signatures', function (): void {
+    expect(new ExtendedTextGenerationLoop(new TextGenerationLoopFakeGateway))->toBeInstanceOf(TextGenerationLoop::class);
+});
 
 test('an approval resume settles an earlier abandoned pause', function (): void {
     $tool = new TextGenerationLoopApprovableTool;
