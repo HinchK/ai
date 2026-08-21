@@ -470,6 +470,6 @@ class PendingEmbeddingsGeneration
         }
 
         return $this->cacheIndividually
-            ?? (bool) config('ai.caching.embeddings.individually', false);
+            ?? (bool) config('ai.caching.embeddings.individually', true);
     }
 }
