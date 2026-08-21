@@ -96,7 +96,7 @@ trait ParsesTextResponses
         $usage = $data['usage'] ?? [];
 
         return new Usage(
-            $usage['prompt_tokens'] ?? 0,
+            ($usage['prompt_tokens'] ?? 0) - ($usage['prompt_tokens_details']['cached_tokens'] ?? 0),
             $usage['completion_tokens'] ?? 0,
             cacheWriteInputTokens: $usage['prompt_tokens_details']['cache_write_tokens'] ?? 0,
             cacheReadInputTokens: $usage['prompt_tokens_details']['cached_tokens'] ?? 0,

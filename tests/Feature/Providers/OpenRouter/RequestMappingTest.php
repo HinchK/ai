@@ -259,7 +259,7 @@ test('response usage includes cache and reasoning tokens', function (): void {
 
     $response = agent()->prompt('Hello', provider: 'openrouter');
 
-    expect($response->usage->promptTokens)->toBe(100)
+    expect($response->usage->promptTokens)->toBe(80)
         ->and($response->usage->completionTokens)->toBe(50)
         ->and($response->usage->cacheReadInputTokens)->toBe(20)
         ->and($response->usage->cacheWriteInputTokens)->toBe(80)
