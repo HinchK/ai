@@ -60,10 +60,10 @@ trait MapsAttachments
                 ],
             ],
             $attachment instanceof RemoteImage => [
-                'fileData' => array_filter([
-                    'mimeType' => $attachment->mime,
-                    'fileUri' => $attachment->url,
-                ]),
+                'inlineData' => [
+                    'mimeType' => $attachment->mimeType() ?? 'image/png',
+                    'data' => base64_encode($attachment->content()),
+                ],
             ],
             $attachment instanceof LocalImage => [
                 'inlineData' => [
@@ -97,10 +97,10 @@ trait MapsAttachments
                 ],
             ],
             $attachment instanceof RemoteDocument => [
-                'fileData' => array_filter([
-                    'mimeType' => $attachment->mime,
-                    'fileUri' => $attachment->url,
-                ]),
+                'inlineData' => [
+                    'mimeType' => $attachment->mimeType() ?? 'application/octet-stream',
+                    'data' => base64_encode($attachment->content()),
+                ],
             ],
             $attachment instanceof StoredDocument => [
                 'inlineData' => [
@@ -131,10 +131,10 @@ trait MapsAttachments
                 ],
             ],
             $attachment instanceof RemoteAudio => [
-                'fileData' => array_filter([
-                    'mimeType' => $attachment->mime,
-                    'fileUri' => $attachment->url,
-                ]),
+                'inlineData' => [
+                    'mimeType' => $attachment->mimeType() ?? 'audio/mp3',
+                    'data' => base64_encode($attachment->content()),
+                ],
             ],
             $attachment instanceof Base64Video => [
                 'inlineData' => [
