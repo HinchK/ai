@@ -43,6 +43,7 @@ trait HandlesTextStreaming
         $modelParts = [];
         $usage = null;
         $data = [];
+        $citationData = [];
 
         foreach ($this->parseServerSentEvents($streamBody) as $data) {
             if (isset($data['error'])) {
@@ -70,6 +71,11 @@ trait HandlesTextStreaming
 
             $candidate = $data['candidates'][0] ?? [];
             $parts = $candidate['content']['parts'] ?? [];
+
+            // Citation metadata may arrive on any chunk, not necessarily the last...
+            if (isset($candidate['groundingMetadata']) || isset($candidate['citationMetadata'])) {
+                $citationData = $data;
+            }
 
             foreach ($parts as $part) {
                 if (isset($part['text']) && $this->isThinkingPart($part)) {
@@ -186,8 +192,8 @@ trait HandlesTextStreaming
             }
         }
 
-        // Emit citations from the grounding metadata on the final chunk...
-        foreach ($this->extractCitations($data) as $citation) {
+        // Emit citations from the last chunk that carried citation metadata...
+        foreach ($this->extractCitations($citationData) as $citation) {
             yield (new CitationEvent(
                 $this->generateEventId(),
                 $messageId,
