@@ -62,6 +62,22 @@ test('overloaded response throws provider overloaded exception', function (): vo
     );
 })->throws(ProviderOverloadedException::class);
 
+test('flex tier capacity exceeded response throws provider overloaded exception', function (): void {
+    Http::fake([
+        'api.groq.com/*' => Http::response([
+            'error' => [
+                'type' => 'capacity_exceeded',
+                'message' => 'Flex tier capacity exceeded. Please try again later.',
+            ],
+        ], 498),
+    ]);
+
+    (new AssistantAgent)->prompt(
+        'Hi',
+        provider: 'groq',
+    );
+})->throws(ProviderOverloadedException::class);
+
 test('error in 200 response throws ai exception', function (): void {
     Http::fake([
         'api.groq.com/*' => Http::response([
