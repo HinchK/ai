@@ -41,6 +41,7 @@ trait HandlesTextStreaming
         $toolCalls = [];
         $pendingToolCalls = [];
         $reasoningItems = [];
+        $lastTextMessageId = null;
         $usage = null;
         $responseData = [];
 
@@ -107,6 +108,7 @@ trait HandlesTextStreaming
                     time(),
                 ))->withInvocationId($invocationId);
 
+                $lastTextMessageId = $messageId;
                 $textStartEmitted = false;
                 $messageId = $this->generateEventId();
 
@@ -281,7 +283,7 @@ trait HandlesTextStreaming
                 foreach ($this->extractCitations($response['output'] ?? []) as $citation) {
                     yield (new CitationEvent(
                         $this->generateEventId(),
-                        $messageId,
+                        $lastTextMessageId ?? $messageId,
                         $citation,
                         time(),
                     ))->withInvocationId($invocationId);

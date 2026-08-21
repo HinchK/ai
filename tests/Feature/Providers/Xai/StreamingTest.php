@@ -63,9 +63,13 @@ test('streaming emits citation events from the completed response', function ():
         ),
     ]);
 
-    $citations = array_values(array_filter($this->collectStreamEvents(), fn ($e): bool => $e instanceof CitationEvent));
+    $events = $this->collectStreamEvents();
+    $textStart = collect($events)->first(fn ($event): bool => $event instanceof TextStart);
+    $citations = array_values(array_filter($events, fn ($event): bool => $event instanceof CitationEvent));
 
     expect($citations)->toHaveCount(2)
+        ->and($citations[0]->messageId)->toBe($textStart->messageId)
+        ->and($citations[1]->messageId)->toBe($textStart->messageId)
         ->and($citations[0]->citation->url)->toBe('https://example.com/one')
         ->and($citations[0]->citation->title)->toBe('Example One')
         ->and($citations[0]->citation->startIndex)->toBe(0)
