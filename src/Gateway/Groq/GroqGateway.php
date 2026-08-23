@@ -42,8 +42,8 @@ class GroqGateway implements StepTextGateway, TranscriptionGateway
      */
     protected function overloadedStatusCodes(): array
     {
-        // 498 is Groq's "flex tier capacity exceeded" status, plus the shared transient gateway and Cloudflare codes.
-        return [498, 502, 503, 504, 520, 522, 524];
+        // The status codes Groq documents as transient: 498 is "flex tier capacity exceeded", alongside 502 and 503.
+        return [498, 502, 503];
     }
 
     /**
