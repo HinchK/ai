@@ -41,7 +41,7 @@ test('tool with parameters includes correct schema', function (): void {
     });
 });
 
-test('tool without Strict attribute sends strict false and honors developer-declared required fields', function (): void {
+test('tool without Strict attribute sends strict false', function (): void {
     Http::fake([
         '*' => fakeXaiToolMappingResponse('ok'),
     ]);
