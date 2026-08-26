@@ -5,21 +5,26 @@ namespace Laravel\Ai\Providers;
 use Illuminate\Contracts\Events\Dispatcher;
 use Laravel\Ai\Contracts\Gateway\EmbeddingGateway;
 use Laravel\Ai\Contracts\Gateway\ImageGateway;
+use Laravel\Ai\Contracts\Gateway\RerankingGateway;
 use Laravel\Ai\Contracts\Gateway\StepTextGateway;
 use Laravel\Ai\Contracts\Providers\EmbeddingProvider;
 use Laravel\Ai\Contracts\Providers\ImageProvider;
+use Laravel\Ai\Contracts\Providers\RerankingProvider;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Gateway\Bedrock\BedrockImageGateway;
+use Laravel\Ai\Gateway\Bedrock\BedrockRerankingGateway;
 use Laravel\Ai\Gateway\Bedrock\BedrockTextGateway;
 
-class BedrockProvider extends Provider implements EmbeddingProvider, ImageProvider, TextProvider
+class BedrockProvider extends Provider implements EmbeddingProvider, ImageProvider, RerankingProvider, TextProvider
 {
     use Concerns\GeneratesEmbeddings;
     use Concerns\GeneratesImages;
     use Concerns\GeneratesText;
     use Concerns\HasEmbeddingGateway;
     use Concerns\HasImageGateway;
+    use Concerns\HasRerankingGateway;
     use Concerns\HasTextGateway;
+    use Concerns\Reranks;
     use Concerns\StreamsText;
 
     public function __construct(
@@ -150,5 +155,21 @@ class BedrockProvider extends Provider implements EmbeddingProvider, ImageProvid
     public function imageGateway(): ImageGateway
     {
         return $this->imageGateway ??= new BedrockImageGateway;
+    }
+
+    /**
+     * Get the name of the default reranking model.
+     */
+    public function defaultRerankingModel(): string
+    {
+        return $this->config['models']['reranking']['default'] ?? 'cohere.rerank-v3-5:0';
+    }
+
+    /**
+     * Get the provider's reranking gateway.
+     */
+    public function rerankingGateway(): RerankingGateway
+    {
+        return $this->rerankingGateway ??= new BedrockRerankingGateway;
     }
 }
