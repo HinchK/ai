@@ -85,6 +85,23 @@ test('can assert no files were stored', function (): void {
     Files::assertNothingStored();
 });
 
+test('can store an uploaded file from its path', function (): void {
+    Files::fake();
+
+    Files::put(new UploadedFile(__DIR__.'/../Fixtures/report.txt', 'report.txt', 'text/plain'));
+
+    Files::assertStored(fn (StorableFile $file): bool => $file instanceof LocalDocument);
+    Files::assertStored(fn (StorableFile $file): bool => $file->name() === 'report.txt');
+    Files::assertStored(fn (StorableFile $file): bool => $file->mimeType() === 'text/plain');
+    Files::assertStored(fn (StorableFile $file): bool => trim((string) $file) === 'I am an expense report.');
+});
+
+test('cannot store an uploaded file that failed to upload', function (): void {
+    Files::fake();
+
+    Files::put(new UploadedFile('', 'report.txt', 'text/plain', UPLOAD_ERR_NO_TMP_DIR));
+})->throws(InvalidArgumentException::class);
+
 test('can override the filename when storing files from each document constructor', function (): void {
     Files::fake();
 
@@ -104,17 +121,6 @@ test('can override the filename when storing an existing storable file', functio
     Files::put(Document::fromPath(__DIR__.'/../Fixtures/document.txt'), name: 'override.txt');
 
     Files::assertStored(fn (StorableFile $file): bool => $file->name() === 'override.txt');
-});
-
-test('uploaded files are stored from their path instead of their base64 contents', function (): void {
-    Files::fake();
-
-    Files::put(new UploadedFile(__DIR__.'/../Fixtures/report.txt', 'report.txt', 'text/plain'));
-
-    Files::assertStored(fn (StorableFile $file): bool => $file instanceof LocalDocument);
-    Files::assertStored(fn (StorableFile $file): bool => $file->name() === 'report.txt');
-    Files::assertStored(fn (StorableFile $file): bool => $file->mimeType() === 'text/plain');
-    Files::assertStored(fn (StorableFile $file): bool => trim((string) $file) === 'I am an expense report.');
 });
 
 test('can override the filename when storing files from a local path', function (): void {
