@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Storage;
 use Laravel\Ai\Contracts\Files\StorableFile;
 use Laravel\Ai\Files;
 use Laravel\Ai\Files\Document;
+use Laravel\Ai\Files\LocalDocument;
 use Laravel\Ai\Responses\FileResponse;
 
 test('files can be faked', function (): void {
@@ -103,6 +104,17 @@ test('can override the filename when storing an existing storable file', functio
     Files::put(Document::fromPath(__DIR__.'/../Fixtures/document.txt'), name: 'override.txt');
 
     Files::assertStored(fn (StorableFile $file): bool => $file->name() === 'override.txt');
+});
+
+test('uploaded files are stored from their path instead of their base64 contents', function (): void {
+    Files::fake();
+
+    Files::put(new UploadedFile(__DIR__.'/../Fixtures/report.txt', 'report.txt', 'text/plain'));
+
+    Files::assertStored(fn (StorableFile $file): bool => $file instanceof LocalDocument);
+    Files::assertStored(fn (StorableFile $file): bool => $file->name() === 'report.txt');
+    Files::assertStored(fn (StorableFile $file): bool => $file->mimeType() === 'text/plain');
+    Files::assertStored(fn (StorableFile $file): bool => trim((string) $file) === 'I am an expense report.');
 });
 
 test('can override the filename when storing files from a local path', function (): void {
