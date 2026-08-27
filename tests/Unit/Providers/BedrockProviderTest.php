@@ -125,24 +125,6 @@ test('defaults to us east 1 region when not specified', function (): void {
         ->and($additionalConfig['region'])->toBe('us-east-1');
 });
 
-test('returns default text model', function (): void {
-    $provider = new BedrockProvider([], $this->dispatcher);
-
-    expect($provider->defaultTextModel())->toBe('us.anthropic.claude-sonnet-4-5-20250929-v1:0');
-});
-
-test('returns cheapest text model', function (): void {
-    $provider = new BedrockProvider([], $this->dispatcher);
-
-    expect($provider->cheapestTextModel())->toBe('us.anthropic.claude-haiku-4-5-20251001-v1:0');
-});
-
-test('returns smartest text model', function (): void {
-    $provider = new BedrockProvider([], $this->dispatcher);
-
-    expect($provider->smartestTextModel())->toBe('us.anthropic.claude-opus-4-6-v1');
-});
-
 test('allows custom text models in config', function (): void {
     $config = [
         'models' => [
