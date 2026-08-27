@@ -49,7 +49,7 @@ trait HasRemoteContent
      */
     protected function response(): Response
     {
-        return $this->response ??= Http::get($this->url);
+        return $this->response ??= Http::get($this->url)->throw();
     }
 
     public function __toString(): string

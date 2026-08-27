@@ -156,11 +156,16 @@ trait MapsAttachments
                     ),
                 ],
             ],
-            $attachment instanceof RemoteVideo => [
+            $attachment instanceof RemoteVideo => $this->isYouTubeUrl($attachment->url) ? [
                 'fileData' => array_filter([
                     'mimeType' => $attachment->mime,
                     'fileUri' => $attachment->url,
                 ]),
+            ] : [
+                'inlineData' => [
+                    'mimeType' => $attachment->mimeType() ?? 'video/mp4',
+                    'data' => base64_encode($attachment->content()),
+                ],
             ],
             $attachment instanceof UploadedFile => [
                 'inlineData' => [
@@ -170,5 +175,15 @@ trait MapsAttachments
             ],
             default => throw new InvalidArgumentException('Unsupported attachment type ['.get_debug_type($attachment).']'),
         };
+    }
+
+    /**
+     * Determine if the given URL is a YouTube URL, which Gemini accepts as a file URI.
+     */
+    protected function isYouTubeUrl(string $url): bool
+    {
+        return in_array(strtolower((string) parse_url($url, PHP_URL_HOST)), [
+            'youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'www.youtu.be',
+        ], true);
     }
 }
