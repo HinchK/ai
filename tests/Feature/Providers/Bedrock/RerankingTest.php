@@ -33,6 +33,22 @@ test('reranking request includes model, query, and documents', function (): void
         ]);
 });
 
+test('reranking request omits api version for amazon rerank models', function (): void {
+    $mock = $this->bedrockInvokeMock(fakeBedrockRerankingResponse());
+
+    Ai::instance('bedrock')->useRerankingGateway(
+        $this->rerankingGatewayWithClient($this->bedrockClient($mock)),
+    );
+
+    Reranking::of(['Laravel is a PHP framework', 'React is a JS library'])
+        ->rerank('What is Laravel?', provider: 'bedrock', model: 'amazon.rerank-v1:0');
+
+    expect(json_decode($mock->getLastCommand()['body'], true))->toBe([
+        'query' => 'What is Laravel?',
+        'documents' => ['Laravel is a PHP framework', 'React is a JS library'],
+    ]);
+});
+
 test('reranking request includes top_n when limit set', function (): void {
     $mock = $this->bedrockInvokeMock(fakeBedrockRerankingResponse());
 

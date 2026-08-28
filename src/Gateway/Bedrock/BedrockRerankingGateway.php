@@ -42,7 +42,7 @@ class BedrockRerankingGateway implements RerankingGateway
                         'query' => $query,
                         'documents' => array_values($documents),
                         'top_n' => $limit,
-                        'api_version' => 2,
+                        'api_version' => str_starts_with($model, 'cohere.') ? 2 : null,
                     ])),
                 ]),
             );
