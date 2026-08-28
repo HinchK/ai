@@ -33,7 +33,7 @@ trait HasRemoteContent
      */
     public function mimeType(): ?string
     {
-        return $this->mime ?? (new Stringable($this->response()->header('Content-Type')))->before(';')->trim()->toString();
+        return $this->mime ?? ((new Stringable($this->response()->header('Content-Type')))->before(';')->trim()->toString() ?: null);
     }
 
     /**
