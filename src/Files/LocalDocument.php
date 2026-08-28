@@ -4,6 +4,7 @@ namespace Laravel\Ai\Files;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Http\UploadedFile;
 use InvalidArgumentException;
 use JsonSerializable;
 use Laravel\Ai\Contracts\Files\StorableFile;
@@ -21,6 +22,27 @@ class LocalDocument extends Document implements Arrayable, JsonSerializable, Sto
         }
 
         $this->mime = $mimeType;
+    }
+
+    /**
+     * Create a document from an uploaded file, copying it to a managed temporary
+     * path so its contents outlive the request without being read into memory.
+     */
+    public static function fromUploadedFile(UploadedFile $file): self
+    {
+        $source = $file->getPathname();
+
+        if (blank($source)) {
+            throw new InvalidArgumentException('Document file path cannot be empty.');
+        }
+
+        $target = tempnam(sys_get_temp_dir(), 'laravel-ai-upload-');
+
+        if ($target === false || ! copy($source, $target)) {
+            throw new RuntimeException("Unable to copy the uploaded file from [{$source}].");
+        }
+
+        return (new self($target, $file->getClientMimeType()))->as($file->getClientOriginalName());
     }
 
     /**
