@@ -7,6 +7,7 @@ use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Events\ToolFailed;
+use Laravel\Ai\Events\ToolInvoked;
 use Laravel\Ai\Gateway\Concerns\InvokesTools;
 use Laravel\Ai\Gateway\RunContext;
 use Laravel\Ai\Tools\Request;
@@ -24,11 +25,15 @@ test('invalid tool request arguments throw a validation exception', function ():
 })->throws(ValidationException::class);
 
 test('a validation failure is returned to the model as the tool result', function (): void {
-    $failure = null;
+    $invoked = null;
+    $failed = 0;
 
     $events = new Dispatcher;
-    $events->listen(ToolFailed::class, function (ToolFailed $event) use (&$failure): void {
-        $failure = $event;
+    $events->listen(ToolInvoked::class, function (ToolInvoked $event) use (&$invoked): void {
+        $invoked = $event;
+    });
+    $events->listen(ToolFailed::class, function () use (&$failed): void {
+        $failed++;
     });
 
     $gateway = new class
@@ -72,5 +77,6 @@ test('a validation failure is returned to the model as the tool result', functio
     $result = $gateway->invoke($tool, [], $context);
 
     expect($result)->toBe('The city field is required.')
-        ->and($failure->exception)->toBeInstanceOf(ValidationException::class);
+        ->and($invoked->result)->toBe('The city field is required.')
+        ->and($failed)->toBe(0);
 });
