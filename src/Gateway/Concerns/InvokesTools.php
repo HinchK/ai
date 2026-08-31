@@ -2,7 +2,9 @@
 
 namespace Laravel\Ai\Gateway\Concerns;
 
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Gateway\ParentInvocation;
 use Laravel\Ai\Gateway\RunContext;
@@ -33,6 +35,11 @@ trait InvokesTools
             // Only the handler itself may fail the tool call, so a listener that throws is never reported as a tool failure...
             try {
                 $result = $tool->handle(new Request($arguments, $toolCallId, $toolInvocationId));
+            } catch (ValidationException $exception) {
+                $context?->toolFailed($tool, $arguments, $exception, $toolInvocationId, $this->elapsedMilliseconds($startedAt));
+
+                // Validation failures are returned to the model so it can correct the arguments and retry...
+                return implode(' ', Arr::flatten($exception->errors())) ?: 'The given data was invalid.';
             } catch (Throwable $exception) {
                 $context?->toolFailed($tool, $arguments, $exception, $toolInvocationId, $this->elapsedMilliseconds($startedAt));
 
