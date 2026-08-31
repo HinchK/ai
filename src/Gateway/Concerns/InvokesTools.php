@@ -2,7 +2,6 @@
 
 namespace Laravel\Ai\Gateway\Concerns;
 
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Laravel\Ai\Contracts\Tool;
@@ -39,7 +38,7 @@ trait InvokesTools
                 $context?->toolFailed($tool, $arguments, $exception, $toolInvocationId, $this->elapsedMilliseconds($startedAt));
 
                 // Validation failures are returned to the model so it can correct the arguments and retry...
-                return implode(' ', Arr::flatten($exception->errors())) ?: 'The given data was invalid.';
+                return implode(' ', $exception->validator->errors()->all()) ?: $exception->getMessage();
             } catch (Throwable $exception) {
                 $context?->toolFailed($tool, $arguments, $exception, $toolInvocationId, $this->elapsedMilliseconds($startedAt));
 
