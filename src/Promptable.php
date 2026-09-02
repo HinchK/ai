@@ -37,7 +37,6 @@ use Laravel\Ai\Responses\QueuedAgentResponse;
 use Laravel\Ai\Responses\StreamableAgentResponse;
 use Laravel\Ai\Responses\StreamedAgentResponse;
 use Laravel\Ai\Streaming\Events\StreamEvent;
-use Laravel\Ai\Vercel\Vercel;
 use LogicException;
 use ReflectionClass;
 use RuntimeException;
@@ -277,9 +276,7 @@ trait Promptable
         }
 
         $this->adHocMessages = Collection::make($messages)
-            ->flatMap(fn ($message) => is_array($message) && isset($message['parts'])
-                ? Vercel::messagesFrom([$message])
-                : [Message::tryFrom($message)])
+            ->map(fn ($message) => Message::tryFrom($message))
             ->all();
 
         return $this;
