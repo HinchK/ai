@@ -7,20 +7,12 @@ use Illuminate\Support\Str;
 use Laravel\Ai\Approvals\Decisions;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Providers\TextProvider;
-use Laravel\Ai\Messages\Message;
 
 class AgentPrompt extends Prompt
 {
     public readonly Agent $agent;
 
     public readonly Collection $attachments;
-
-    /**
-     * The ad-hoc message history to send ahead of the prompt.
-     *
-     * @var list<Message>|null
-     */
-    public readonly ?array $messages;
 
     public readonly ?int $timeout;
 
@@ -47,13 +39,11 @@ class AgentPrompt extends Prompt
         ?string $parentInvocationId = null,
         ?string $parentToolInvocationId = null,
         bool $isFinalAttempt = true,
-        ?array $messages = null,
     ) {
         parent::__construct($prompt, $provider, $model, $approvalDecisions);
 
         $this->agent = $agent;
         $this->attachments = Collection::make($attachments);
-        $this->messages = $messages;
         $this->timeout = $timeout;
         $this->invocationId = $invocationId;
         $this->parentInvocationId = $parentInvocationId;
@@ -110,7 +100,6 @@ class AgentPrompt extends Prompt
             $this->parentInvocationId,
             $this->parentToolInvocationId,
             $this->isFinalAttempt,
-            $this->messages,
         );
     }
 
