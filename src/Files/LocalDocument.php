@@ -15,7 +15,7 @@ class LocalDocument extends Document implements Arrayable, JsonSerializable, Sto
 {
     use CanBeUploadedToProvider;
 
-    public function __construct(public string $path, ?string $mimeType = null)
+    public function __construct(public string $path, ?string $mimeType = null, protected ?UploadedFile $upload = null)
     {
         if (blank($path)) {
             throw new InvalidArgumentException('Document file path cannot be empty.');
@@ -25,24 +25,15 @@ class LocalDocument extends Document implements Arrayable, JsonSerializable, Sto
     }
 
     /**
-     * Create a document from an uploaded file, copying it to a managed temporary
-     * path so its contents outlive the request without being read into memory.
+     * Create a document from an uploaded file, holding the upload so its temporary file is not discarded.
      */
     public static function fromUploadedFile(UploadedFile $file): self
     {
-        $source = $file->getPathname();
-
-        if (blank($source)) {
-            throw new InvalidArgumentException('Document file path cannot be empty.');
-        }
-
-        $target = tempnam(sys_get_temp_dir(), 'laravel-ai-upload-');
-
-        if ($target === false || ! copy($source, $target)) {
-            throw new RuntimeException("Unable to copy the uploaded file from [{$source}].");
-        }
-
-        return (new self($target, $file->getClientMimeType()))->as($file->getClientOriginalName());
+        return (new self(
+            $file->getPathname(),
+            $file->getClientMimeType(),
+            $file,
+        ))->as($file->getClientOriginalName());
     }
 
     /**
@@ -103,5 +94,27 @@ class LocalDocument extends Document implements Arrayable, JsonSerializable, Sto
     public function __toString(): string
     {
         return $this->content();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function __serialize(): array
+    {
+        $data = get_object_vars($this);
+
+        unset($data['upload']);
+
+        return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function __unserialize(array $data): void
+    {
+        foreach ($data as $key => $value) {
+            $this->{$key} = $value;
+        }
     }
 }

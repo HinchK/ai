@@ -168,8 +168,6 @@ describe('file operations', function (): void {
         Stores::create('My Store')
             ->add(UploadedFile::fake()->createWithContent('report.txt', 'I am an expense report.'));
 
-        gc_collect_cycles();
-
         Files::assertStored(fn (StorableFile $file): bool => trim((string) $file) === 'I am an expense report.');
     });
 
