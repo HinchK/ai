@@ -148,7 +148,37 @@ test('it stores sparse keyed tool calls and results as JSON arrays', function ()
         ->and(array_is_list(json_decode((string) $record->tool_results, true)))->toBeTrue();
 });
 
-test('it restores persisted tool result failure status', function (): void {
+test('it round trips tool result failure status through storage', function (): void {
+    $store = new DatabaseConversationStore;
+    $conversationId = $store->storeConversation('user', 1, 'Tool conversation');
+
+    $prompt = new AgentPrompt(
+        new ToolUsingAgent,
+        'Where is Berlin?',
+        [],
+        Mockery::mock(TextProvider::class),
+        'test-model',
+    );
+
+    $response = new AgentResponse('invocation-id', '', new Usage, new Meta);
+    $response->toolCalls = collect([new ToolCall('call-1', 'query-resources', [])]);
+    $response->toolResults = collect([
+        new ToolResult('call-1', 'query-resources', [], 'Tool not found', failed: true),
+    ]);
+
+    $store->storeAssistantMessage($conversationId, 'user', 1, $prompt, $response);
+
+    $result = $store->getLatestConversationMessages($conversationId, 10)
+        ->first(fn (Message $message): bool => $message instanceof ToolResultMessage)
+        ?->toolResults
+        ->first();
+
+    expect($result)->not->toBeNull()
+        ->and($result->successful())->toBeFalse()
+        ->and($result->error())->toBe('Tool not found');
+});
+
+test('it treats tool results stored before the failed flag as successful', function (): void {
     $store = new DatabaseConversationStore;
     $conversationId = $store->storeConversation('user', 1, 'Tool conversation');
 
@@ -165,15 +195,7 @@ test('it restores persisted tool result failure status', function (): void {
             ['id' => 'call-1', 'name' => 'query-resources', 'arguments' => []],
         ]),
         'tool_results' => json_encode([
-            [
-                'id' => 'call-1',
-                'name' => 'query-resources',
-                'arguments' => [],
-                'result' => 'Tool not found',
-                'result_id' => null,
-                'successful' => false,
-                'error' => 'Tool not found',
-            ],
+            ['id' => 'call-1', 'name' => 'query-resources', 'arguments' => [], 'result' => 'Berlin', 'result_id' => null],
         ]),
         'usage' => '[]',
         'meta' => '[]',
@@ -187,8 +209,8 @@ test('it restores persisted tool result failure status', function (): void {
         ->first();
 
     expect($result)->not->toBeNull()
-        ->and($result->successful)->toBeFalse()
-        ->and($result->error)->toBe('Tool not found');
+        ->and($result->successful())->toBeTrue()
+        ->and($result->error())->toBeNull();
 });
 
 test('a bare rejection resume does not persist a blank assistant row', function (): void {

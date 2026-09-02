@@ -7,10 +7,6 @@ use JsonSerializable;
 
 class ToolResult implements Arrayable, JsonSerializable
 {
-    public bool $successful;
-
-    public ?string $error;
-
     public function __construct(
         public string $id,
         public string $name,
@@ -18,12 +14,8 @@ class ToolResult implements Arrayable, JsonSerializable
         public mixed $result,
         public ?string $resultId = null,
         public bool $denied = false,
-        ?bool $successful = null,
-        ?string $error = null,
-    ) {
-        $this->successful = $successful ?? ! $denied;
-        $this->error = $error ?? (! $this->successful && is_string($result) ? $result : null);
-    }
+        public bool $failed = false,
+    ) {}
 
     /**
      * Reconstruct an instance from a previously serialized toArray() payload.
@@ -37,13 +29,28 @@ class ToolResult implements Arrayable, JsonSerializable
             result: $data['result'],
             resultId: $data['result_id'] ?? null,
             denied: $data['denied'] ?? false,
-            successful: $data['successful'] ?? null,
-            error: $data['error'] ?? null,
+            failed: $data['failed'] ?? false,
         );
     }
 
     /**
-     * Get the instance as an array, omitting default status values.
+     * Determine if the tool call ran and produced its own result.
+     */
+    public function successful(): bool
+    {
+        return ! $this->denied && ! $this->failed;
+    }
+
+    /**
+     * Get the message explaining why the tool call did not succeed.
+     */
+    public function error(): ?string
+    {
+        return $this->successful() || ! is_string($this->result) ? null : $this->result;
+    }
+
+    /**
+     * Get the instance as an array, only including the denied and failed keys when they apply.
      */
     public function toArray(): array
     {
@@ -54,8 +61,7 @@ class ToolResult implements Arrayable, JsonSerializable
             'result' => $this->result,
             'result_id' => $this->resultId,
             ...($this->denied ? ['denied' => true] : []),
-            ...(! $this->successful ? ['successful' => false] : []),
-            ...($this->error !== null ? ['error' => $this->error] : []),
+            ...($this->failed ? ['failed' => true] : []),
         ];
     }
 

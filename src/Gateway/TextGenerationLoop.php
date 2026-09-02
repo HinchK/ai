@@ -206,8 +206,8 @@ class TextGenerationLoop
                 yield (new ToolResultEvent(
                     $this->generateEventId(),
                     $toolResult,
-                    $toolResult->successful,
-                    $toolResult->error,
+                    $toolResult->successful(),
+                    $toolResult->error(),
                     time(),
                     denied: $toolResult->denied,
                 ))->withInvocationId($invocationId);
@@ -290,8 +290,8 @@ class TextGenerationLoop
                 yield (new ToolResultEvent(
                     $this->generateEventId(),
                     $toolResult,
-                    $toolResult->successful,
-                    $toolResult->error,
+                    $toolResult->successful(),
+                    $toolResult->error(),
                     time(),
                 ))->withInvocationId($invocationId);
             }
@@ -426,16 +426,13 @@ class TextGenerationLoop
                 default => $this->executeTool($tool, $toolCall->arguments, $toolCall->id, $context),
             };
 
-            $successful = $tool instanceof Tool && ! $isFinalStep;
-
             return new ToolResult(
                 $toolCall->id,
                 $toolCall->name,
                 $toolCall->arguments,
                 $result,
                 $toolCall->resultId,
-                successful: $successful,
-                error: $successful ? null : $result,
+                failed: ! $tool instanceof Tool || $isFinalStep,
             );
         }, $resolved);
 
@@ -467,7 +464,7 @@ class TextGenerationLoop
     {
         $messages = $this->settleAbandonedToolCalls($messages, exceptLatestAssistantTurn: true);
 
-        [$approvalResults, $shouldContinue, $failedToolCallIds] = $this->resolveApprovalResults($approval, $messages, $tools, $validatedApproval, $context);
+        [$approvalResults, $shouldContinue] = $this->resolveApprovalResults($approval, $messages, $tools, $validatedApproval, $context);
 
         $newMessages = [];
 
@@ -479,7 +476,6 @@ class TextGenerationLoop
             messages: $messages,
             newMessages: $newMessages,
             results: $approvalResults,
-            failedToolCallIds: $failedToolCallIds,
             shouldContinue: $shouldContinue,
         );
     }
@@ -489,14 +485,13 @@ class TextGenerationLoop
      * @param  Message[]  $messages
      * @param  array<Tool|ProviderTool>  $tools
      * @param  array{Collection<int, ToolCall>, Collection<string, ?Tool>}|null  $validatedApproval  a caller's own eager validateApproval() result, reused instead of re-validating
-     * @return array{array<int, ToolResult>, bool, array<int, string>}
+     * @return array{array<int, ToolResult>, bool}
      */
     protected function resolveApprovalResults(array $approval, array $messages, array $tools, ?array $validatedApproval = null, ?RunContext $context = null): array
     {
         [$pendingToolCalls, $resolvedTools] = $validatedApproval ?? $this->validateApproval($approval, $messages, $tools);
 
         $toolResults = [];
-        $failedToolCallIds = [];
         $hasBareRejection = false;
 
         foreach ($pendingToolCalls as $toolCall) {
@@ -532,7 +527,6 @@ class TextGenerationLoop
                 $result = $this->executeTool($tool, $arguments, $toolCall->id, $context);
             } catch (Throwable $exception) {
                 $failed = true;
-                $failedToolCallIds[] = $toolCall->id;
                 $result = 'The tool call failed: '.$exception->getMessage();
             }
 
@@ -542,12 +536,11 @@ class TextGenerationLoop
                 $arguments,
                 $result,
                 $toolCall->resultId,
-                successful: ! $failed,
-                error: $failed ? $result : null,
+                failed: $failed,
             );
         }
 
-        return [$toolResults, ! $hasBareRejection, $failedToolCallIds];
+        return [$toolResults, ! $hasBareRejection];
     }
 
     /**

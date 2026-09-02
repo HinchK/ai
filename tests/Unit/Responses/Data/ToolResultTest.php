@@ -48,50 +48,22 @@ test('tool result from array hydrates the denied flag from its key', function ()
         ->and(ToolResult::fromArray(['id' => 'id', 'name' => 'name', 'arguments' => [], 'result' => 'val', 'denied' => true])->denied)->toBeTrue();
 });
 
-test('tool result serializes failure status and error details', function (): void {
-    $result = new ToolResult(
-        id: 'call-1',
-        name: 'query-resources',
-        arguments: [],
-        result: 'Tool not found',
-        successful: false,
-        error: 'Tool not found',
-    );
-
-    expect($result->toArray())->toMatchArray([
-        'successful' => false,
-        'error' => 'Tool not found',
-    ]);
+test('tool result to array includes the failed key only when failed', function (): void {
+    expect((new ToolResult('id', 'name', [], 'val'))->toArray())->not->toHaveKey('failed')
+        ->and((new ToolResult('id', 'name', [], 'Tool not found', failed: true))->toArray())->toHaveKey('failed', true);
 });
 
-test('tool result hydrates status while remaining compatible with legacy payloads', function (): void {
-    $failed = ToolResult::fromArray([
-        'id' => 'call-1',
-        'name' => 'query-resources',
-        'arguments' => [],
-        'result' => 'Tool not found',
-        'successful' => false,
-        'error' => 'Tool not found',
-    ]);
+test('tool result from array hydrates the failed flag from its key', function (): void {
+    expect(ToolResult::fromArray(['id' => 'id', 'name' => 'name', 'arguments' => [], 'result' => 'val'])->failed)->toBeFalse()
+        ->and(ToolResult::fromArray(['id' => 'id', 'name' => 'name', 'arguments' => [], 'result' => 'val', 'failed' => true])->failed)->toBeTrue();
+});
 
-    $legacySuccess = ToolResult::fromArray([
-        'id' => 'call-2',
-        'name' => 'query-resources',
-        'arguments' => [],
-        'result' => 'Berlin',
-    ]);
-
-    $legacyDenied = ToolResult::fromArray([
-        'id' => 'call-3',
-        'name' => 'delete-resource',
-        'arguments' => [],
-        'result' => 'Not approved',
-        'denied' => true,
-    ]);
-
-    expect($failed->successful)->toBeFalse()
-        ->and($failed->error)->toBe('Tool not found')
-        ->and($legacySuccess->successful)->toBeTrue()
-        ->and($legacySuccess->error)->toBeNull()
-        ->and($legacyDenied->successful)->toBeFalse();
+test('tool result reports its error only when the call did not succeed', function (): void {
+    expect((new ToolResult('id', 'name', [], 'Berlin'))->successful())->toBeTrue()
+        ->and((new ToolResult('id', 'name', [], 'Berlin'))->error())->toBeNull()
+        ->and((new ToolResult('id', 'name', [], 'Tool not found', failed: true))->successful())->toBeFalse()
+        ->and((new ToolResult('id', 'name', [], 'Tool not found', failed: true))->error())->toBe('Tool not found')
+        ->and((new ToolResult('id', 'name', [], 'Rejected', denied: true))->successful())->toBeFalse()
+        ->and((new ToolResult('id', 'name', [], 'Rejected', denied: true))->error())->toBe('Rejected')
+        ->and((new ToolResult('id', 'name', [], ['code' => 500], failed: true))->error())->toBeNull();
 });
