@@ -1,6 +1,20 @@
 # Release Notes
 
-## [Unreleased](https://github.com/laravel/ai/compare/v0.11.1...0.x)
+## [Unreleased](https://github.com/laravel/ai/compare/v0.11.2...0.x)
+
+## [v0.11.2](https://github.com/laravel/ai/compare/v0.11.1...v0.11.2) - 2026-09-03
+
+### What's Changed
+
+* Copy uploaded files to a managed temp path so their contents survive the request by [@sulimanbenhalim](https://github.com/sulimanbenhalim) in https://github.com/laravel/ai/pull/959
+* Preserve tool result failure status across conversations by [@drewmt](https://github.com/drewmt) in https://github.com/laravel/ai/pull/812
+* Fix invalid Mistral cheapest text model default by [@kachelle](https://github.com/kachelle) in https://github.com/laravel/ai/pull/980
+
+### New Contributors
+
+* [@drewmt](https://github.com/drewmt) made their first contribution in https://github.com/laravel/ai/pull/812
+
+**Full Changelog**: https://github.com/laravel/ai/compare/v0.11.1...v0.11.2
 
 ## [v0.11.1](https://github.com/laravel/ai/compare/v0.11.0...v0.11.1) - 2026-09-02
 
